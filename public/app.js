@@ -6,11 +6,15 @@ const analyticsEl = document.getElementById('analytics');
 const messageEl = document.getElementById('message');
 const sessionInfoEl = document.getElementById('sessionInfo');
 const demoUsersEl = document.getElementById('demoUsers');
+const journeyResultEl = document.getElementById('journeyResult');
+const policyListEl = document.getElementById('policyList');
 
 const aspirationForm = document.getElementById('aspirationForm');
 const skillForm = document.getElementById('skillForm');
 const searchForm = document.getElementById('searchForm');
 const opportunityForm = document.getElementById('opportunityForm');
+const policyForm = document.getElementById('policyForm');
+const journeyForm = document.getElementById('journeyForm');
 const loginForm = document.getElementById('loginForm');
 const logoutBtn = document.getElementById('logoutBtn');
 const exportLink = document.getElementById('exportLink');
@@ -18,11 +22,20 @@ const exportLink = document.getElementById('exportLink');
 const employeePanel = document.getElementById('employeePanel');
 const managerPanel = document.getElementById('managerPanel');
 const analyticsPanel = document.getElementById('analyticsPanel');
+const policyPanel = document.getElementById('policyPanel');
+const journeyPanel = document.getElementById('journeyPanel');
+
+const typeFilter = document.getElementById('typeFilter');
+const oppType = document.getElementById('oppType');
+const policyType = document.getElementById('policyType');
+const journeyOpportunitySelect = document.getElementById('journeyOpportunitySelect');
 
 const TOKEN_KEY = 'itm_auth_token';
 
 let state = {
   employees: [],
+  opportunities: [],
+  opportunityTypes: [],
   selectedEmployeeId: null,
   token: localStorage.getItem(TOKEN_KEY) || null,
   currentUser: null
@@ -45,7 +58,7 @@ async function api(url, options = {}) {
       const body = await response.json();
       errorText = body.error || errorText;
     } catch {
-      // ignore parse failure
+      // ignore
     }
     throw new Error(errorText);
   }
@@ -70,24 +83,47 @@ function canEditSelectedEmployee() {
   return state.currentUser.role === 'hr' || state.currentUser.employeeId === state.selectedEmployeeId;
 }
 
+function isManagerOrHr() {
+  return ['manager', 'hr'].includes(state.currentUser?.role);
+}
+
+function populateTypeSelects() {
+  const options = ['<option value="">All opportunity types</option>']
+    .concat(state.opportunityTypes.map((type) => `<option value="${type}">${type}</option>`))
+    .join('');
+  typeFilter.innerHTML = options;
+
+  const createOptions = state.opportunityTypes.map((type) => `<option value="${type}">${type}</option>`).join('');
+  oppType.innerHTML = createOptions;
+
+  const policyOptions = ['<option value="*">All types (*)</option>']
+    .concat(state.opportunityTypes.map((type) => `<option value="${type}">${type}</option>`))
+    .join('');
+  policyType.innerHTML = policyOptions;
+}
+
 function updateVisibility() {
   const isLoggedIn = Boolean(state.currentUser);
   if (!isLoggedIn) {
     employeePanel.classList.add('hidden');
     managerPanel.classList.add('hidden');
     analyticsPanel.classList.add('hidden');
+    policyPanel.classList.add('hidden');
+    journeyPanel.classList.add('hidden');
     return;
   }
 
   employeePanel.classList.remove('hidden');
+  journeyPanel.classList.remove('hidden');
 
-  const isManagerOrHr = ['manager', 'hr'].includes(state.currentUser.role);
-  if (isManagerOrHr) {
+  if (isManagerOrHr()) {
     managerPanel.classList.remove('hidden');
     analyticsPanel.classList.remove('hidden');
+    policyPanel.classList.remove('hidden');
   } else {
     managerPanel.classList.add('hidden');
     analyticsPanel.classList.add('hidden');
+    policyPanel.classList.add('hidden');
   }
 
   const editable = canEditSelectedEmployee();
@@ -96,6 +132,11 @@ function updateVisibility() {
   });
   Array.from(skillForm.elements).forEach((el) => {
     el.disabled = !editable;
+  });
+
+  const policyEditable = state.currentUser.role === 'hr';
+  Array.from(policyForm.elements).forEach((el) => {
+    el.disabled = !policyEditable;
   });
 }
 
@@ -116,13 +157,14 @@ async function loadDemoUsers() {
   const users = await api('/api/auth/demo-users', { headers: {} });
   demoUsersEl.innerHTML = `
     <p><strong>Demo Accounts (password: <span class="code">demo123</span>)</strong></p>
-    ${users
-      .map(
-        (user) =>
-          `<p><span class="code">${user.userId}</span> - ${user.name} (${user.role})</p>`
-      )
-      .join('')}
+    ${users.map((user) => `<p><span class="code">${user.userId}</span> - ${user.name} (${user.role})</p>`).join('')}
   `;
+}
+
+async function loadOpportunityTypes() {
+  if (!state.currentUser) return;
+  state.opportunityTypes = await api('/api/opportunity-types');
+  populateTypeSelects();
 }
 
 async function loadEmployees() {
@@ -193,12 +235,49 @@ function renderOpportunity(opp) {
   `;
 }
 
+function renderApprovalStages(stages = []) {
+  if (!stages.length) return '<p><strong>Approvals:</strong> None required</p>';
+  return `
+    <p><strong>Approvals:</strong></p>
+    ${stages
+      .map(
+        (stage) =>
+          `<p><span class="pill">${stage.stageId}</span> ${stage.approverType} - <strong>${stage.status}</strong></p>`
+      )
+      .join('')}
+  `;
+}
+
+function renderApplicationActions(item) {
+  if (!isManagerOrHr()) return '';
+  const pending = (item.approvals || []).find((stage) => stage.status === 'Pending');
+  if (!pending) return '';
+
+  return `
+    <div class="actions">
+      <button onclick="decideApproval('${item.applicationId}', 'Approved')">Approve Stage</button>
+      <button class="secondary" onclick="decideApproval('${item.applicationId}', 'Rejected')">Reject Stage</button>
+    </div>
+  `;
+}
+
 async function loadOpportunities() {
   if (!state.selectedEmployeeId) return;
   const q = encodeURIComponent(document.getElementById('searchText').value || '');
   const department = encodeURIComponent(document.getElementById('departmentFilter').value || '');
-  const opportunities = await api(`/api/opportunities?employeeId=${state.selectedEmployeeId}&q=${q}&department=${department}`);
+  const type = encodeURIComponent(typeFilter.value || '');
+  const opportunities = await api(
+    `/api/opportunities?employeeId=${state.selectedEmployeeId}&q=${q}&department=${department}&type=${type}`
+  );
+
+  state.opportunities = opportunities;
+
   opportunitiesEl.innerHTML = opportunities.map(renderOpportunity).join('') || '<p>No opportunities found.</p>';
+
+  journeyOpportunitySelect.innerHTML = opportunities
+    .filter((opp) => ['Role', 'Project', 'Mentorship', 'Stretch'].includes(opp.type))
+    .map((opp) => `<option value="${opp.opportunityId}">${opp.title} (${opp.type})</option>`)
+    .join('');
 }
 
 async function loadApplications() {
@@ -216,24 +295,54 @@ async function loadApplications() {
         <div class="item">
           <h4>${item.opportunity?.title || item.opportunityId}${employeeName}</h4>
           <p>Status: <strong>${item.status}</strong></p>
+          <p>Policy: ${item.approvalPolicyId || 'N/A'}</p>
+          ${renderApprovalStages(item.approvals || [])}
           <p>Last updated: ${new Date(item.updatedAt).toLocaleString()}</p>
+          ${renderApplicationActions(item)}
         </div>
       `;
     })
     .join('');
 }
 
+async function loadPolicies() {
+  if (!isManagerOrHr()) {
+    policyListEl.innerHTML = '<p>Policy access unavailable.</p>';
+    return;
+  }
+
+  const policies = await api('/api/approval-policies');
+  policyListEl.innerHTML = policies.length
+    ? policies
+        .map(
+          (policy) => `
+          <div class="item">
+            <h4>${policy.name}</h4>
+            <p>Department: ${policy.department} · Type: ${policy.opportunityType}</p>
+            <p>Stages: ${(policy.stages || []).map((stage) => stage.stageId).join(', ') || 'None'}</p>
+          </div>
+        `
+        )
+        .join('')
+    : '<p>No approval policies configured.</p>';
+}
+
 async function loadAnalytics() {
-  if (!['manager', 'hr'].includes(state.currentUser?.role)) {
+  if (!isManagerOrHr()) {
     analyticsEl.innerHTML = '<p>Analytics unavailable for this role.</p>';
     return;
   }
 
   const stats = await api('/api/analytics');
 
+  const byType = Object.entries(stats.opportunitiesByType || {})
+    .map(([type, count]) => `${type}: ${count}`)
+    .join(', ');
+
   analyticsEl.innerHTML = `
     <p>Total employees: <strong>${stats.totalEmployees}</strong></p>
     <p>Total opportunities: <strong>${stats.totalOpportunities}</strong></p>
+    <p>Opportunity mix: <strong>${byType || 'N/A'}</strong></p>
     <p>Total applications: <strong>${stats.totalApplications}</strong></p>
     <p>Internal mobility rate: <strong>${stats.internalMobilityRate}%</strong></p>
     <p>Internal fill rate: <strong>${stats.internalFillRate}%</strong></p>
@@ -242,15 +351,50 @@ async function loadAnalytics() {
   `;
 }
 
+async function loadJourney() {
+  const targetOpportunityId = journeyOpportunitySelect.value;
+  if (!targetOpportunityId || !state.selectedEmployeeId) {
+    journeyResultEl.innerHTML = '<p>Select a target opportunity to generate a roadmap.</p>';
+    return;
+  }
+
+  const journey = await api(
+    `/api/career-journey?employeeId=${state.selectedEmployeeId}&targetOpportunityId=${targetOpportunityId}`
+  );
+
+  const roadmapLines = journey.roadmap
+    .map((step) => `<p>Step ${step.step}: ${step.action}</p>`)
+    .join('');
+
+  const learningLines = journey.learningRecommendations
+    .map((item) => `<p><strong>${item.title}</strong>: ${item.description}</p>`)
+    .join('');
+
+  const pathProgression = (journey.pathProgression || []).join(' -> ');
+
+  journeyResultEl.innerHTML = `
+    <p><strong>Readiness Score:</strong> ${journey.readinessScore}%</p>
+    <p><strong>Target:</strong> ${journey.targetOpportunity.title} (${journey.targetOpportunity.type})</p>
+    <p><strong>Path Progression:</strong> ${pathProgression || 'No defined path for this role.'}</p>
+    <p><strong>Roadmap:</strong></p>
+    ${roadmapLines || '<p>No gaps identified.</p>'}
+    <p><strong>Learning Recommendations:</strong></p>
+    ${learningLines || '<p>No matching learning opportunities found.</p>'}
+  `;
+}
+
 async function refreshAll() {
   try {
     if (!state.currentUser) return;
+    await loadOpportunityTypes();
     await loadEmployees();
     updateVisibility();
     await loadEmployeeProfile();
     await loadOpportunities();
     await loadApplications();
+    await loadPolicies();
     await loadAnalytics();
+    await loadJourney();
   } catch (error) {
     setMessage(error.message, true);
   }
@@ -300,22 +444,64 @@ searchForm.addEventListener('submit', async (event) => {
   await loadOpportunities();
 });
 
+journeyForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  try {
+    await loadJourney();
+    setMessage('Career journey generated.');
+  } catch (error) {
+    setMessage(error.message, true);
+  }
+});
+
 opportunityForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   try {
+    const relatedSkillIds = document
+      .getElementById('oppRelatedSkills')
+      .value.split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
     await api('/api/opportunities', {
       method: 'POST',
       body: JSON.stringify({
         title: document.getElementById('oppTitle').value,
-        jobId: document.getElementById('oppJobId').value,
+        type: document.getElementById('oppType').value,
+        jobId: document.getElementById('oppJobId').value || null,
         department: document.getElementById('oppDepartment').value,
-        description: document.getElementById('oppDescription').value
+        duration: document.getElementById('oppDuration').value,
+        description: document.getElementById('oppDescription').value,
+        relatedSkillIds
       })
     });
+
     opportunityForm.reset();
     setMessage('Opportunity created.');
-    await loadOpportunities();
-    await loadAnalytics();
+    await refreshAll();
+  } catch (error) {
+    setMessage(error.message, true);
+  }
+});
+
+policyForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  try {
+    const stages = JSON.parse(document.getElementById('policyStages').value);
+    await api('/api/approval-policies', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: document.getElementById('policyName').value,
+        department: document.getElementById('policyDepartment').value,
+        opportunityType: document.getElementById('policyType').value,
+        stages
+      })
+    });
+
+    policyForm.reset();
+    document.getElementById('policyDepartment').value = '*';
+    setMessage('Approval policy created.');
+    await loadPolicies();
   } catch (error) {
     setMessage(error.message, true);
   }
@@ -351,7 +537,7 @@ logoutBtn.addEventListener('click', async () => {
       await api('/api/auth/logout', { method: 'POST' });
     }
   } catch (_error) {
-    // ignore logout errors
+    // ignore
   }
 
   state.token = null;
@@ -363,6 +549,8 @@ logoutBtn.addEventListener('click', async () => {
   opportunitiesEl.innerHTML = '';
   applicationsEl.innerHTML = '';
   analyticsEl.innerHTML = '';
+  journeyResultEl.innerHTML = '';
+  policyListEl.innerHTML = '';
 
   renderSession();
   updateVisibility();
@@ -402,7 +590,7 @@ window.applyOpportunity = async function applyOpportunity(opportunityId) {
   try {
     await api('/api/applications', {
       method: 'POST',
-      body: JSON.stringify({ opportunityId, status: 'Submitted' })
+      body: JSON.stringify({ opportunityId })
     });
     setMessage('Application submitted.');
     await loadApplications();
@@ -418,6 +606,19 @@ window.bookmarkOpportunity = async function bookmarkOpportunity(opportunityId) {
       method: 'POST'
     });
     setMessage('Opportunity bookmarked.');
+  } catch (error) {
+    setMessage(error.message, true);
+  }
+};
+
+window.decideApproval = async function decideApproval(applicationId, decision) {
+  try {
+    await api(`/api/applications/${applicationId}/approvals`, {
+      method: 'POST',
+      body: JSON.stringify({ decision, notes: `${decision} via dashboard` })
+    });
+    setMessage(`Approval decision recorded: ${decision}.`);
+    await loadApplications();
   } catch (error) {
     setMessage(error.message, true);
   }

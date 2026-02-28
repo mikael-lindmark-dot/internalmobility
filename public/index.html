@@ -50,15 +50,27 @@
         </form>
       </section>
 
+      <section class="panel" id="journeyPanel">
+        <h2>Career Journey Roadmap</h2>
+        <form id="journeyForm" class="inline-form-wide">
+          <select id="journeyOpportunitySelect"></select>
+          <button type="submit">Generate Journey</button>
+        </form>
+        <div id="journeyResult" class="card"></div>
+      </section>
+
       <section class="panel">
         <h2>Opportunity Marketplace</h2>
-        <form id="searchForm" class="inline-form">
-          <input id="searchText" placeholder="Search roles, projects, gigs" />
+        <form id="searchForm" class="inline-form-wide">
+          <input id="searchText" placeholder="Search roles, projects, mentorship, learning" />
           <select id="departmentFilter">
             <option value="">All departments</option>
             <option value="Engineering">Engineering</option>
             <option value="Data">Data</option>
             <option value="Product">Product</option>
+          </select>
+          <select id="typeFilter">
+            <option value="">All opportunity types</option>
           </select>
           <button type="submit">Search</button>
         </form>
@@ -71,13 +83,28 @@
       </section>
 
       <section class="panel" id="managerPanel">
-        <h2>Manager: Create Opportunity</h2>
+        <h2>Create Opportunity</h2>
         <form id="opportunityForm" class="grid-form">
           <input id="oppTitle" placeholder="Opportunity title" required />
-          <input id="oppJobId" placeholder="Job profile ID (e.g. job_201)" required />
+          <select id="oppType" required></select>
+          <input id="oppJobId" placeholder="Job profile ID (required for Role/Stretch)" />
           <input id="oppDepartment" placeholder="Department" required />
+          <input id="oppDuration" placeholder="Duration (e.g. 8 weeks)" />
+          <input id="oppRelatedSkills" placeholder="Related skill IDs (comma-separated)" />
           <textarea id="oppDescription" rows="3" placeholder="Description"></textarea>
           <button type="submit">Create Opportunity</button>
+        </form>
+      </section>
+
+      <section class="panel" id="policyPanel">
+        <h2>Approval Policies</h2>
+        <div id="policyList" class="card-list"></div>
+        <form id="policyForm" class="grid-form">
+          <input id="policyName" placeholder="Policy name" required />
+          <input id="policyDepartment" placeholder="Department or *" value="*" required />
+          <select id="policyType" required></select>
+          <textarea id="policyStages" rows="3" placeholder='Stages JSON, e.g. [{"stageId":"manager_release","approverType":"employee_manager","required":true}]' required></textarea>
+          <button type="submit">Create Policy (HR only)</button>
         </form>
       </section>
 

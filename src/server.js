@@ -8,6 +8,7 @@ const PORT = process.env.PORT || 3000;
 const APPLICATION_STATUSES = [
   'Draft',
   'Submitted',
+  'Pending Approval',
   'Under Review',
   'Interviewing',
   'Offered',
@@ -15,6 +16,7 @@ const APPLICATION_STATUSES = [
   'Rejected'
 ];
 
+const OPPORTUNITY_TYPES = ['Role', 'Project', 'Mentorship', 'Learning', 'Stretch'];
 const sessions = new Map();
 
 function createId(prefix) {
@@ -63,10 +65,20 @@ function canManageOpportunity(user, opportunityId, db) {
   return Boolean(opportunity && opportunity.hiringManagerId === user.employeeId);
 }
 
+function getRequiredSkillsForOpportunity(db, opportunity) {
+  const jobProfile = opportunity.jobId ? db.jobProfiles.find((job) => job.jobId === opportunity.jobId) : null;
+
+  if (jobProfile) {
+    return jobProfile.requiredSkills;
+  }
+
+  return Array.isArray(opportunity.requiredSkills) ? opportunity.requiredSkills : [];
+}
+
 function computeMatch(db, employeeId, opportunity) {
-  const jobProfile = db.jobProfiles.find((job) => job.jobId === opportunity.jobId);
-  if (!jobProfile) {
-    return { matchPercent: 0, missingSkills: [] };
+  const requiredSkills = getRequiredSkillsForOpportunity(db, opportunity);
+  if (!requiredSkills.length) {
+    return { matchPercent: 100, missingSkills: [] };
   }
 
   const employeeSkills = db.employeeSkills.filter((item) => item.employeeId === employeeId);
@@ -76,7 +88,7 @@ function computeMatch(db, employeeId, opportunity) {
   let totalWeight = 0;
   const missingSkills = [];
 
-  for (const req of jobProfile.requiredSkills) {
+  for (const req of requiredSkills) {
     totalWeight += req.weight;
     const employeeSkill = skillById.get(req.skillId);
     const proficiency = employeeSkill ? employeeSkill.proficiency : 0;
@@ -116,6 +128,90 @@ function asyncHandler(fn) {
   };
 }
 
+function ensureCollections(db) {
+  if (!Array.isArray(db.approvalPolicies)) db.approvalPolicies = [];
+  if (!Array.isArray(db.auditLogs)) db.auditLogs = [];
+}
+
+function resolveApprovalPolicy(db, opportunity) {
+  const policies = db.approvalPolicies || [];
+  const candidates = policies.filter((policy) => {
+    const deptMatch = policy.department === '*' || policy.department === opportunity.department;
+    const typeMatch = policy.opportunityType === '*' || policy.opportunityType === opportunity.type;
+    return deptMatch && typeMatch;
+  });
+
+  if (!candidates.length) {
+    return {
+      policyId: 'pol_fallback',
+      stages: [
+        {
+          stageId: 'hiring_manager_review',
+          approverType: 'hiring_manager',
+          required: true
+        }
+      ]
+    };
+  }
+
+  candidates.sort((a, b) => {
+    const score = (policy) => {
+      let value = 0;
+      if (policy.opportunityType === opportunity.type) value += 2;
+      if (policy.department === opportunity.department) value += 1;
+      return value;
+    };
+    return score(b) - score(a);
+  });
+
+  return candidates[0];
+}
+
+function buildApprovals(policy) {
+  const stages = Array.isArray(policy.stages) ? policy.stages : [];
+  return stages.map((stage) => ({
+    stageId: stage.stageId,
+    approverType: stage.approverType,
+    status: stage.required === false ? 'Optional' : 'Pending',
+    actedBy: null,
+    actedAt: null,
+    notes: null
+  }));
+}
+
+function nextPendingApproval(application) {
+  if (!Array.isArray(application.approvals)) return null;
+  return application.approvals.find((stage) => stage.status === 'Pending') || null;
+}
+
+function canActOnStage(user, stage, application, opportunity, employee, db) {
+  if (user.role === 'hr') return true;
+  if (!stage) return false;
+
+  if (stage.approverType === 'hiring_manager') {
+    return canManageOpportunity(user, opportunity.opportunityId, db);
+  }
+
+  if (stage.approverType === 'employee_manager') {
+    return user.role === 'manager' && employee && employee.managerId === user.employeeId;
+  }
+
+  if (stage.approverType === 'hr') {
+    return user.role === 'hr';
+  }
+
+  return false;
+}
+
+function enrichOpportunity(db, targetEmployeeId, opp) {
+  const job = opp.jobId ? db.jobProfiles.find((j) => j.jobId === opp.jobId) : null;
+  const base = { ...opp, jobProfile: job };
+  if (!targetEmployeeId) return base;
+
+  const match = computeMatch(db, String(targetEmployeeId), opp);
+  return { ...base, ...match };
+}
+
 function createApp(options = {}) {
   const store = options.store || createStore();
   const app = express();
@@ -125,6 +221,8 @@ function createApp(options = {}) {
 
   const requireAuth = asyncHandler(async (req, res, next) => {
     const db = await store.readDb();
+    ensureCollections(db);
+
     const header = req.headers.authorization || '';
     const token = header.startsWith('Bearer ') ? header.slice(7) : null;
 
@@ -189,6 +287,10 @@ function createApp(options = {}) {
 
   app.get('/api/auth/me', requireAuth, asyncHandler(async (req, res) => {
     res.json(withoutPassword(req.user));
+  }));
+
+  app.get('/api/opportunity-types', requireAuth, asyncHandler(async (_req, res) => {
+    res.json(OPPORTUNITY_TYPES);
   }));
 
   app.get('/api/employees', requireAuth, asyncHandler(async (req, res) => {
@@ -358,7 +460,7 @@ function createApp(options = {}) {
 
   app.get('/api/opportunities', requireAuth, asyncHandler(async (req, res) => {
     const db = req.db;
-    const { q = '', department = '', employeeId } = req.query;
+    const { q = '', department = '', type = '', employeeId } = req.query;
 
     let targetEmployeeId = employeeId;
     if (req.user.role === 'employee') {
@@ -372,17 +474,11 @@ function createApp(options = {}) {
     let results = db.opportunities.filter((opp) => {
       const matchesText = [opp.title, opp.description, opp.type].join(' ').toLowerCase().includes(String(q).toLowerCase());
       const matchesDepartment = department ? opp.department === department : true;
-      return matchesText && matchesDepartment;
+      const matchesType = type ? opp.type === type : true;
+      return matchesText && matchesDepartment && matchesType;
     });
 
-    results = results.map((opp) => {
-      const job = db.jobProfiles.find((j) => j.jobId === opp.jobId);
-      if (targetEmployeeId) {
-        const match = computeMatch(db, String(targetEmployeeId), opp);
-        return { ...opp, jobProfile: job, ...match };
-      }
-      return { ...opp, jobProfile: job };
-    });
+    results = results.map((opp) => enrichOpportunity(db, targetEmployeeId, opp));
 
     return res.json(results);
   }));
@@ -394,21 +490,40 @@ function createApp(options = {}) {
       return forbidden(res);
     }
 
-    const { title, type, duration, jobId, department, description } = req.body;
+    const {
+      title,
+      type = 'Role',
+      duration,
+      jobId,
+      department,
+      description,
+      relatedSkillIds = [],
+      requiredSkills = []
+    } = req.body;
 
-    if (!title || !jobId || !department) {
-      return res.status(400).json({ error: 'title, jobId, and department are required.' });
+    if (!title || !department) {
+      return res.status(400).json({ error: 'title and department are required.' });
+    }
+
+    if (!OPPORTUNITY_TYPES.includes(type)) {
+      return res.status(400).json({ error: `Invalid type. Allowed: ${OPPORTUNITY_TYPES.join(', ')}` });
+    }
+
+    if (['Role', 'Stretch'].includes(type) && !jobId) {
+      return res.status(400).json({ error: 'jobId is required for Role and Stretch opportunities.' });
     }
 
     const opportunity = {
       opportunityId: createId('opp'),
       title,
-      type: type || 'Role',
-      duration: duration || 'Full-time',
-      jobId,
+      type,
+      duration: duration || (type === 'Role' ? 'Full-time' : 'Flexible'),
+      jobId: jobId || null,
       department,
       hiringManagerId: req.user.employeeId || null,
       description: description || '',
+      relatedSkillIds,
+      requiredSkills: Array.isArray(requiredSkills) ? requiredSkills : [],
       createdAt: new Date().toISOString()
     };
 
@@ -461,6 +576,70 @@ function createApp(options = {}) {
     return res.json(computeMatch(db, employee.employeeId, opportunity));
   }));
 
+  app.get('/api/approval-policies', requireAuth, asyncHandler(async (req, res) => {
+    if (!['manager', 'hr'].includes(req.user.role)) {
+      return forbidden(res);
+    }
+
+    res.json(req.db.approvalPolicies);
+  }));
+
+  app.post('/api/approval-policies', requireAuth, asyncHandler(async (req, res) => {
+    const db = req.db;
+
+    if (req.user.role !== 'hr') {
+      return forbidden(res, 'Only HR can create approval policies.');
+    }
+
+    const { name, department = '*', opportunityType = '*', stages = [] } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: 'name is required.' });
+    }
+
+    if (opportunityType !== '*' && !OPPORTUNITY_TYPES.includes(opportunityType)) {
+      return res.status(400).json({ error: `Invalid opportunityType. Allowed: ${OPPORTUNITY_TYPES.join(', ')}` });
+    }
+
+    const policy = {
+      policyId: createId('pol'),
+      name,
+      department,
+      opportunityType,
+      stages: Array.isArray(stages) ? stages : []
+    };
+
+    db.approvalPolicies.push(policy);
+    pushAudit(db, 'CREATE', 'ApprovalPolicy', policy.policyId, req.user.userId);
+    await store.writeDb(db);
+
+    return res.status(201).json(policy);
+  }));
+
+  app.patch('/api/approval-policies/:policyId', requireAuth, asyncHandler(async (req, res) => {
+    const db = req.db;
+
+    if (req.user.role !== 'hr') {
+      return forbidden(res, 'Only HR can update approval policies.');
+    }
+
+    const policy = db.approvalPolicies.find((item) => item.policyId === req.params.policyId);
+    if (!policy) {
+      return res.status(404).json({ error: 'Policy not found.' });
+    }
+
+    const updates = ['name', 'department', 'opportunityType', 'stages'];
+    for (const field of updates) {
+      if (req.body[field] !== undefined) {
+        policy[field] = req.body[field];
+      }
+    }
+
+    pushAudit(db, 'UPDATE', 'ApprovalPolicy', policy.policyId, req.user.userId);
+    await store.writeDb(db);
+
+    return res.json(policy);
+  }));
+
   app.post('/api/applications', requireAuth, asyncHandler(async (req, res) => {
     const db = req.db;
 
@@ -468,15 +647,16 @@ function createApp(options = {}) {
       return forbidden(res, 'Only employees can submit applications.');
     }
 
-    const { opportunityId, status = 'Submitted' } = req.body;
+    const { opportunityId } = req.body;
     const employeeId = req.user.employeeId;
 
     if (!employeeId || !opportunityId) {
       return res.status(400).json({ error: 'employeeId and opportunityId are required.' });
     }
 
-    if (!APPLICATION_STATUSES.includes(status)) {
-      return res.status(400).json({ error: `Invalid status. Allowed: ${APPLICATION_STATUSES.join(', ')}` });
+    const opportunity = db.opportunities.find((item) => item.opportunityId === opportunityId);
+    if (!opportunity) {
+      return res.status(404).json({ error: 'Opportunity not found.' });
     }
 
     const existing = db.applications.find(
@@ -487,11 +667,17 @@ function createApp(options = {}) {
       return res.status(409).json({ error: 'Application already exists.' });
     }
 
+    const policy = resolveApprovalPolicy(db, opportunity);
+    const approvals = buildApprovals(policy);
+    const hasPending = approvals.some((stage) => stage.status === 'Pending');
+
     const application = {
       applicationId: createId('app'),
       employeeId,
       opportunityId,
-      status,
+      status: hasPending ? 'Pending Approval' : 'Submitted',
+      approvalPolicyId: policy.policyId,
+      approvals,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -501,6 +687,54 @@ function createApp(options = {}) {
     await store.writeDb(db);
 
     return res.status(201).json(application);
+  }));
+
+  app.post('/api/applications/:applicationId/approvals', requireAuth, asyncHandler(async (req, res) => {
+    const db = req.db;
+    const application = db.applications.find((item) => item.applicationId === req.params.applicationId);
+
+    if (!application) {
+      return res.status(404).json({ error: 'Application not found.' });
+    }
+
+    const opportunity = db.opportunities.find((item) => item.opportunityId === application.opportunityId);
+    const employee = db.employees.find((item) => item.employeeId === application.employeeId);
+
+    if (!opportunity || !employee) {
+      return res.status(404).json({ error: 'Application references missing entities.' });
+    }
+
+    const stage = nextPendingApproval(application);
+    if (!stage) {
+      return res.status(409).json({ error: 'No pending approvals remain.' });
+    }
+
+    if (!canActOnStage(req.user, stage, application, opportunity, employee, db)) {
+      return forbidden(res, 'You are not allowed to act on this approval stage.');
+    }
+
+    const { decision, notes = '' } = req.body;
+    if (!['Approved', 'Rejected'].includes(decision)) {
+      return res.status(400).json({ error: 'decision must be Approved or Rejected.' });
+    }
+
+    stage.status = decision;
+    stage.actedBy = req.user.userId;
+    stage.actedAt = new Date().toISOString();
+    stage.notes = notes;
+
+    if (decision === 'Rejected') {
+      application.status = 'Rejected';
+    } else {
+      const pending = nextPendingApproval(application);
+      application.status = pending ? 'Pending Approval' : 'Under Review';
+    }
+
+    application.updatedAt = new Date().toISOString();
+    pushAudit(db, 'APPROVAL_DECISION', 'InternalApplication', application.applicationId, req.user.userId);
+    await store.writeDb(db);
+
+    return res.json(application);
   }));
 
   app.patch('/api/applications/:applicationId/status', requireAuth, asyncHandler(async (req, res) => {
@@ -605,6 +839,75 @@ function createApp(options = {}) {
     });
   }));
 
+  app.get('/api/career-journey', requireAuth, asyncHandler(async (req, res) => {
+    const db = req.db;
+    const employeeId = req.query.employeeId || req.user.employeeId;
+    const targetOpportunityId = req.query.targetOpportunityId;
+
+    if (!employeeId || !targetOpportunityId) {
+      return res.status(400).json({ error: 'employeeId and targetOpportunityId are required.' });
+    }
+
+    if (!canAccessEmployee(req.user, String(employeeId), db)) {
+      return forbidden(res);
+    }
+
+    const employee = db.employees.find((item) => item.employeeId === employeeId);
+    const targetOpportunity = db.opportunities.find((item) => item.opportunityId === targetOpportunityId);
+
+    if (!employee || !targetOpportunity) {
+      return res.status(404).json({ error: 'Employee or target opportunity not found.' });
+    }
+
+    const match = computeMatch(db, employeeId, targetOpportunity);
+    const missingSkillIds = new Set(match.missingSkills.map((skill) => skill.skillId));
+
+    const learningRecommendations = db.opportunities
+      .filter((opp) => opp.type === 'Learning')
+      .filter((opp) => Array.isArray(opp.relatedSkillIds) && opp.relatedSkillIds.some((id) => missingSkillIds.has(id)))
+      .map((opp) => ({
+        opportunityId: opp.opportunityId,
+        title: opp.title,
+        description: opp.description,
+        relatedSkillIds: opp.relatedSkillIds
+      }));
+
+    const path = db.careerPaths.find((item) => item.department === employee.department && item.jobSequence.includes(employee.role));
+    let progression = [];
+    if (path) {
+      const currentIndex = path.jobSequence.indexOf(employee.role);
+      progression = path.jobSequence.slice(currentIndex);
+    }
+
+    const roadmap = match.missingSkills.map((skill, index) => ({
+      step: index + 1,
+      skillId: skill.skillId,
+      skillName: skill.skillName,
+      currentLevel: skill.currentLevel,
+      targetLevel: skill.requiredLevel,
+      action: `Increase ${skill.skillName} from level ${skill.currentLevel} to ${skill.requiredLevel}.`
+    }));
+
+    return res.json({
+      employee: {
+        employeeId: employee.employeeId,
+        name: employee.name,
+        role: employee.role,
+        department: employee.department
+      },
+      targetOpportunity: {
+        opportunityId: targetOpportunity.opportunityId,
+        title: targetOpportunity.title,
+        type: targetOpportunity.type
+      },
+      readinessScore: match.matchPercent,
+      missingSkills: match.missingSkills,
+      roadmap,
+      pathProgression: progression,
+      learningRecommendations
+    });
+  }));
+
   app.get('/api/analytics', requireAuth, asyncHandler(async (req, res) => {
     const db = req.db;
 
@@ -629,9 +932,15 @@ function createApp(options = {}) {
       ? Number(((db.applications.length / db.employees.length) * 100).toFixed(1))
       : 0;
 
+    const opportunitiesByType = db.opportunities.reduce((acc, opp) => {
+      acc[opp.type] = (acc[opp.type] || 0) + 1;
+      return acc;
+    }, {});
+
     res.json({
       totalEmployees: db.employees.length,
       totalOpportunities,
+      opportunitiesByType,
       totalApplications: db.applications.length,
       internalMobilityRate: mobilityRate,
       internalFillRate,
@@ -647,8 +956,8 @@ function createApp(options = {}) {
 
     const db = req.db;
     const rows = [
-      ['application_id', 'employee_id', 'opportunity_id', 'status', 'created_at', 'updated_at'],
-      ...db.applications.map((a) => [a.applicationId, a.employeeId, a.opportunityId, a.status, a.createdAt, a.updatedAt])
+      ['application_id', 'employee_id', 'opportunity_id', 'status', 'approval_policy_id', 'created_at', 'updated_at'],
+      ...db.applications.map((a) => [a.applicationId, a.employeeId, a.opportunityId, a.status, a.approvalPolicyId || '', a.createdAt, a.updatedAt])
     ];
 
     const csv = rows.map((r) => r.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(',')).join('\n');

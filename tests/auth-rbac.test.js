@@ -21,7 +21,7 @@ async function startTestServer(dbPath) {
   const { app } = createApp({ store });
 
   const server = await new Promise((resolve) => {
-    const s = app.listen(0, () => resolve(s));
+    const s = app.listen(0, '127.0.0.1', () => resolve(s));
   });
 
   const address = server.address();
@@ -143,6 +143,61 @@ test('only HR can export analytics CSV', async () => {
     const hrExport = await request(server.baseUrl, hrToken, 'GET', '/api/analytics/export.csv');
     assert.equal(hrExport.status, 200);
     assert.match(hrExport.body, /application_id/);
+  } finally {
+    await server.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('applications follow policy-driven approvals', async () => {
+  const { dbPath, dir } = makeTempDb();
+  const server = await startTestServer(dbPath);
+
+  try {
+    const employeeToken = await login(server.baseUrl, 'u_emp_001');
+    const managerToken = await login(server.baseUrl, 'u_mgr_010');
+
+    const apply = await request(server.baseUrl, employeeToken, 'POST', '/api/applications', {
+      opportunityId: 'opp_103'
+    });
+
+    assert.equal(apply.status, 201);
+    assert.equal(apply.body.status, 'Pending Approval');
+    assert.equal(apply.body.approvalPolicyId, 'pol_project_fastlane');
+
+    const approve = await request(
+      server.baseUrl,
+      managerToken,
+      'POST',
+      `/api/applications/${apply.body.applicationId}/approvals`,
+      { decision: 'Approved', notes: 'approved in test' }
+    );
+
+    assert.equal(approve.status, 200);
+    assert.equal(approve.body.status, 'Under Review');
+  } finally {
+    await server.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('career journey returns readiness roadmap and learning recommendations', async () => {
+  const { dbPath, dir } = makeTempDb();
+  const server = await startTestServer(dbPath);
+
+  try {
+    const employeeToken = await login(server.baseUrl, 'u_emp_002');
+    const journey = await request(
+      server.baseUrl,
+      employeeToken,
+      'GET',
+      '/api/career-journey?employeeId=emp_002&targetOpportunityId=opp_102'
+    );
+
+    assert.equal(journey.status, 200);
+    assert.equal(journey.body.targetOpportunity.opportunityId, 'opp_102');
+    assert.ok(Array.isArray(journey.body.roadmap));
+    assert.ok(Array.isArray(journey.body.learningRecommendations));
   } finally {
     await server.close();
     fs.rmSync(dir, { recursive: true, force: true });

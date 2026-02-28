@@ -9,7 +9,9 @@
       "tenureMonths": 26,
       "managerId": "emp_010",
       "careerAspirations": "Move into technical leadership and platform architecture.",
-      "bookmarks": ["opp_101"]
+      "bookmarks": [
+        "opp_101"
+      ]
     },
     {
       "employeeId": "emp_002",
@@ -83,20 +85,82 @@
     }
   ],
   "skills": [
-    { "skillId": "sk_js", "skillName": "JavaScript", "category": "Engineering" },
-    { "skillId": "sk_node", "skillName": "Node.js", "category": "Engineering" },
-    { "skillId": "sk_sql", "skillName": "SQL", "category": "Data" },
-    { "skillId": "sk_abtest", "skillName": "A/B Testing", "category": "Data" },
-    { "skillId": "sk_pm", "skillName": "Product Strategy", "category": "Product" },
-    { "skillId": "sk_lead", "skillName": "People Leadership", "category": "Leadership" }
+    {
+      "skillId": "sk_js",
+      "skillName": "JavaScript",
+      "category": "Engineering"
+    },
+    {
+      "skillId": "sk_node",
+      "skillName": "Node.js",
+      "category": "Engineering"
+    },
+    {
+      "skillId": "sk_sql",
+      "skillName": "SQL",
+      "category": "Data"
+    },
+    {
+      "skillId": "sk_abtest",
+      "skillName": "A/B Testing",
+      "category": "Data"
+    },
+    {
+      "skillId": "sk_pm",
+      "skillName": "Product Strategy",
+      "category": "Product"
+    },
+    {
+      "skillId": "sk_lead",
+      "skillName": "People Leadership",
+      "category": "Leadership"
+    }
   ],
   "employeeSkills": [
-    { "employeeId": "emp_001", "skillId": "sk_js", "proficiency": 4, "endorsedBy": ["emp_010"] },
-    { "employeeId": "emp_001", "skillId": "sk_node", "proficiency": 4, "endorsedBy": ["emp_010"] },
-    { "employeeId": "emp_001", "skillId": "sk_sql", "proficiency": 3, "endorsedBy": [] },
-    { "employeeId": "emp_002", "skillId": "sk_sql", "proficiency": 4, "endorsedBy": ["emp_011"] },
-    { "employeeId": "emp_002", "skillId": "sk_abtest", "proficiency": 4, "endorsedBy": ["emp_011"] },
-    { "employeeId": "emp_002", "skillId": "sk_pm", "proficiency": 2, "endorsedBy": [] }
+    {
+      "employeeId": "emp_001",
+      "skillId": "sk_js",
+      "proficiency": 4,
+      "endorsedBy": [
+        "emp_010"
+      ]
+    },
+    {
+      "employeeId": "emp_001",
+      "skillId": "sk_node",
+      "proficiency": 4,
+      "endorsedBy": [
+        "emp_010"
+      ]
+    },
+    {
+      "employeeId": "emp_001",
+      "skillId": "sk_sql",
+      "proficiency": 3,
+      "endorsedBy": []
+    },
+    {
+      "employeeId": "emp_002",
+      "skillId": "sk_sql",
+      "proficiency": 4,
+      "endorsedBy": [
+        "emp_011"
+      ]
+    },
+    {
+      "employeeId": "emp_002",
+      "skillId": "sk_abtest",
+      "proficiency": 4,
+      "endorsedBy": [
+        "emp_011"
+      ]
+    },
+    {
+      "employeeId": "emp_002",
+      "skillId": "sk_pm",
+      "proficiency": 2,
+      "endorsedBy": []
+    }
   ],
   "jobProfiles": [
     {
@@ -104,9 +168,21 @@
       "title": "Senior Software Engineer",
       "department": "Engineering",
       "requiredSkills": [
-        { "skillId": "sk_js", "weight": 0.35, "minProficiency": 4 },
-        { "skillId": "sk_node", "weight": 0.35, "minProficiency": 4 },
-        { "skillId": "sk_lead", "weight": 0.3, "minProficiency": 2 }
+        {
+          "skillId": "sk_js",
+          "weight": 0.35,
+          "minProficiency": 4
+        },
+        {
+          "skillId": "sk_node",
+          "weight": 0.35,
+          "minProficiency": 4
+        },
+        {
+          "skillId": "sk_lead",
+          "weight": 0.3,
+          "minProficiency": 2
+        }
       ]
     },
     {
@@ -114,9 +190,21 @@
       "title": "Product Analytics Manager",
       "department": "Data",
       "requiredSkills": [
-        { "skillId": "sk_sql", "weight": 0.35, "minProficiency": 4 },
-        { "skillId": "sk_abtest", "weight": 0.35, "minProficiency": 4 },
-        { "skillId": "sk_pm", "weight": 0.3, "minProficiency": 3 }
+        {
+          "skillId": "sk_sql",
+          "weight": 0.35,
+          "minProficiency": 4
+        },
+        {
+          "skillId": "sk_abtest",
+          "weight": 0.35,
+          "minProficiency": 4
+        },
+        {
+          "skillId": "sk_pm",
+          "weight": 0.3,
+          "minProficiency": 3
+        }
       ]
     }
   ],
@@ -130,6 +218,11 @@
       "department": "Engineering",
       "hiringManagerId": "emp_010",
       "description": "Lead backend platform initiatives and mentor engineers.",
+      "relatedSkillIds": [
+        "sk_js",
+        "sk_node",
+        "sk_lead"
+      ],
       "createdAt": "2026-02-20T12:00:00.000Z"
     },
     {
@@ -141,7 +234,136 @@
       "department": "Data",
       "hiringManagerId": "emp_011",
       "description": "Drive experimentation and analytics strategy.",
+      "relatedSkillIds": [
+        "sk_sql",
+        "sk_abtest",
+        "sk_pm"
+      ],
       "createdAt": "2026-02-22T12:00:00.000Z"
+    },
+    {
+      "opportunityId": "opp_103",
+      "title": "API Reliability Stretch Project",
+      "type": "Project",
+      "duration": "8 weeks",
+      "jobId": null,
+      "department": "Engineering",
+      "hiringManagerId": "emp_010",
+      "description": "Own service-level objectives and reliability improvements.",
+      "requiredSkills": [
+        {
+          "skillId": "sk_node",
+          "weight": 0.5,
+          "minProficiency": 3
+        },
+        {
+          "skillId": "sk_js",
+          "weight": 0.5,
+          "minProficiency": 3
+        }
+      ],
+      "relatedSkillIds": [
+        "sk_node",
+        "sk_js"
+      ],
+      "createdAt": "2026-02-23T12:00:00.000Z"
+    },
+    {
+      "opportunityId": "opp_104",
+      "title": "Data Leadership Mentorship",
+      "type": "Mentorship",
+      "duration": "12 weeks",
+      "jobId": null,
+      "department": "Data",
+      "hiringManagerId": "emp_011",
+      "description": "Mentorship focused on analytics leadership and influence.",
+      "requiredSkills": [
+        {
+          "skillId": "sk_pm",
+          "weight": 0.5,
+          "minProficiency": 2
+        },
+        {
+          "skillId": "sk_lead",
+          "weight": 0.5,
+          "minProficiency": 2
+        }
+      ],
+      "relatedSkillIds": [
+        "sk_pm",
+        "sk_lead"
+      ],
+      "createdAt": "2026-02-24T12:00:00.000Z"
+    },
+    {
+      "opportunityId": "opp_105",
+      "title": "Advanced Product Analytics Learning Path",
+      "type": "Learning",
+      "duration": "Self-paced",
+      "jobId": null,
+      "department": "Data",
+      "hiringManagerId": "emp_011",
+      "description": "Curated coursework for experimentation design and analytics storytelling.",
+      "requiredSkills": [],
+      "relatedSkillIds": [
+        "sk_abtest",
+        "sk_pm",
+        "sk_sql"
+      ],
+      "createdAt": "2026-02-25T12:00:00.000Z"
+    }
+  ],
+  "approvalPolicies": [
+    {
+      "policyId": "pol_default_role",
+      "name": "Default Role Mobility",
+      "department": "*",
+      "opportunityType": "Role",
+      "stages": [
+        {
+          "stageId": "manager_release",
+          "approverType": "employee_manager",
+          "required": true
+        },
+        {
+          "stageId": "hiring_manager_review",
+          "approverType": "hiring_manager",
+          "required": true
+        }
+      ]
+    },
+    {
+      "policyId": "pol_project_fastlane",
+      "name": "Project Fastlane",
+      "department": "*",
+      "opportunityType": "Project",
+      "stages": [
+        {
+          "stageId": "hiring_manager_review",
+          "approverType": "hiring_manager",
+          "required": true
+        }
+      ]
+    },
+    {
+      "policyId": "pol_mentorship_hr",
+      "name": "Mentorship Governance",
+      "department": "*",
+      "opportunityType": "Mentorship",
+      "stages": [
+        {
+          "stageId": "hr_compliance",
+          "approverType": "hr",
+          "required": true
+        }
+      ]
+    },
+    {
+      "policyId": "pol_learning_open",
+      "name": "Learning Open Access",
+      "department": "*",
+      "opportunityType": "Learning",
+      "stages": []
     }
   ],
   "applications": [
@@ -150,6 +372,25 @@
       "employeeId": "emp_001",
       "opportunityId": "opp_101",
       "status": "Under Review",
+      "approvalPolicyId": "pol_default_role",
+      "approvals": [
+        {
+          "stageId": "manager_release",
+          "approverType": "employee_manager",
+          "status": "Approved",
+          "actedBy": "u_mgr_010",
+          "actedAt": "2026-02-24T13:00:00.000Z",
+          "notes": "Employee can be released in 30 days."
+        },
+        {
+          "stageId": "hiring_manager_review",
+          "approverType": "hiring_manager",
+          "status": "Approved",
+          "actedBy": "u_mgr_010",
+          "actedAt": "2026-02-25T09:00:00.000Z",
+          "notes": "Proceed to interview loop."
+        }
+      ],
       "createdAt": "2026-02-24T10:00:00.000Z",
       "updatedAt": "2026-02-25T09:30:00.000Z"
     }
@@ -157,12 +398,20 @@
   "careerPaths": [
     {
       "pathId": "path_eng_ic",
-      "jobSequence": ["Software Engineer II", "Senior Software Engineer", "Staff Engineer"],
+      "jobSequence": [
+        "Software Engineer II",
+        "Senior Software Engineer",
+        "Staff Engineer"
+      ],
       "department": "Engineering"
     },
     {
       "pathId": "path_data_mgmt",
-      "jobSequence": ["Data Analyst", "Senior Data Analyst", "Product Analytics Manager"],
+      "jobSequence": [
+        "Data Analyst",
+        "Senior Data Analyst",
+        "Product Analytics Manager"
+      ],
       "department": "Data"
     }
   ],
