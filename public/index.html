@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Internal Talent Mobility Platform</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Internal Talent Mobility Platform</h1>
+      <p>Employee growth, internal hiring, and workforce visibility in one place.</p>
+    </header>
+
+    <main>
+      <section class="panel" id="authPanel">
+        <h2>Authentication</h2>
+        <form id="loginForm" class="inline-form">
+          <input id="userId" placeholder="userId" required />
+          <input id="password" type="password" placeholder="password" required />
+          <button type="submit">Login</button>
+        </form>
+        <div class="actions-row">
+          <button id="logoutBtn" class="secondary" type="button">Logout</button>
+        </div>
+        <div id="sessionInfo" class="card"></div>
+        <div id="demoUsers" class="card"></div>
+      </section>
+
+      <section class="panel" id="employeePanel">
+        <h2>Employee</h2>
+        <div class="row">
+          <label for="employeeSelect">Choose employee</label>
+          <select id="employeeSelect"></select>
+        </div>
+        <div id="employeeProfile" class="card"></div>
+
+        <h3>Update Career Aspirations</h3>
+        <form id="aspirationForm" class="grid-form">
+          <textarea id="careerAspirations" rows="3" placeholder="I want to grow into..."></textarea>
+          <button type="submit">Save</button>
+        </form>
+
+        <h3>Add or Update Skill</h3>
+        <form id="skillForm" class="grid-form">
+          <input id="skillName" placeholder="Skill name" required />
+          <input id="skillCategory" placeholder="Category" value="General" />
+          <input id="skillLevel" type="number" min="1" max="5" placeholder="Proficiency 1-5" required />
+          <button type="submit">Save Skill</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2>Opportunity Marketplace</h2>
+        <form id="searchForm" class="inline-form">
+          <input id="searchText" placeholder="Search roles, projects, gigs" />
+          <select id="departmentFilter">
+            <option value="">All departments</option>
+            <option value="Engineering">Engineering</option>
+            <option value="Data">Data</option>
+            <option value="Product">Product</option>
+          </select>
+          <button type="submit">Search</button>
+        </form>
+        <div id="opportunities" class="card-list"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Applications</h2>
+        <div id="applications" class="card-list"></div>
+      </section>
+
+      <section class="panel" id="managerPanel">
+        <h2>Manager: Create Opportunity</h2>
+        <form id="opportunityForm" class="grid-form">
+          <input id="oppTitle" placeholder="Opportunity title" required />
+          <input id="oppJobId" placeholder="Job profile ID (e.g. job_201)" required />
+          <input id="oppDepartment" placeholder="Department" required />
+          <textarea id="oppDescription" rows="3" placeholder="Description"></textarea>
+          <button type="submit">Create Opportunity</button>
+        </form>
+      </section>
+
+      <section class="panel" id="analyticsPanel">
+        <h2>HR/Manager Analytics</h2>
+        <div id="analytics" class="card"></div>
+        <a id="exportLink" class="button-link" href="#">Download CSV Export (HR only)</a>
+      </section>
+
+      <section id="message" class="message"></section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

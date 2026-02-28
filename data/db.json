@@ -1,0 +1,170 @@
+{
+  "employees": [
+    {
+      "employeeId": "emp_001",
+      "name": "Avery Chen",
+      "department": "Engineering",
+      "role": "Software Engineer II",
+      "location": "New York",
+      "tenureMonths": 26,
+      "managerId": "emp_010",
+      "careerAspirations": "Move into technical leadership and platform architecture.",
+      "bookmarks": ["opp_101"]
+    },
+    {
+      "employeeId": "emp_002",
+      "name": "Jordan Patel",
+      "department": "Data",
+      "role": "Data Analyst",
+      "location": "Austin",
+      "tenureMonths": 18,
+      "managerId": "emp_011",
+      "careerAspirations": "Transition to product analytics and experimentation.",
+      "bookmarks": []
+    },
+    {
+      "employeeId": "emp_010",
+      "name": "Riley Gomez",
+      "department": "Engineering",
+      "role": "Engineering Manager",
+      "location": "New York",
+      "tenureMonths": 52,
+      "managerId": null,
+      "careerAspirations": "Lead a larger multi-team org.",
+      "bookmarks": []
+    },
+    {
+      "employeeId": "emp_011",
+      "name": "Taylor Brooks",
+      "department": "Data",
+      "role": "Data Science Manager",
+      "location": "Austin",
+      "tenureMonths": 47,
+      "managerId": null,
+      "careerAspirations": "Lead analytics strategy across business units.",
+      "bookmarks": []
+    }
+  ],
+  "users": [
+    {
+      "userId": "u_emp_001",
+      "name": "Avery Chen",
+      "password": "demo123",
+      "role": "employee",
+      "employeeId": "emp_001"
+    },
+    {
+      "userId": "u_emp_002",
+      "name": "Jordan Patel",
+      "password": "demo123",
+      "role": "employee",
+      "employeeId": "emp_002"
+    },
+    {
+      "userId": "u_mgr_010",
+      "name": "Riley Gomez",
+      "password": "demo123",
+      "role": "manager",
+      "employeeId": "emp_010"
+    },
+    {
+      "userId": "u_mgr_011",
+      "name": "Taylor Brooks",
+      "password": "demo123",
+      "role": "manager",
+      "employeeId": "emp_011"
+    },
+    {
+      "userId": "u_hr_001",
+      "name": "Casey Morgan",
+      "password": "demo123",
+      "role": "hr",
+      "employeeId": null
+    }
+  ],
+  "skills": [
+    { "skillId": "sk_js", "skillName": "JavaScript", "category": "Engineering" },
+    { "skillId": "sk_node", "skillName": "Node.js", "category": "Engineering" },
+    { "skillId": "sk_sql", "skillName": "SQL", "category": "Data" },
+    { "skillId": "sk_abtest", "skillName": "A/B Testing", "category": "Data" },
+    { "skillId": "sk_pm", "skillName": "Product Strategy", "category": "Product" },
+    { "skillId": "sk_lead", "skillName": "People Leadership", "category": "Leadership" }
+  ],
+  "employeeSkills": [
+    { "employeeId": "emp_001", "skillId": "sk_js", "proficiency": 4, "endorsedBy": ["emp_010"] },
+    { "employeeId": "emp_001", "skillId": "sk_node", "proficiency": 4, "endorsedBy": ["emp_010"] },
+    { "employeeId": "emp_001", "skillId": "sk_sql", "proficiency": 3, "endorsedBy": [] },
+    { "employeeId": "emp_002", "skillId": "sk_sql", "proficiency": 4, "endorsedBy": ["emp_011"] },
+    { "employeeId": "emp_002", "skillId": "sk_abtest", "proficiency": 4, "endorsedBy": ["emp_011"] },
+    { "employeeId": "emp_002", "skillId": "sk_pm", "proficiency": 2, "endorsedBy": [] }
+  ],
+  "jobProfiles": [
+    {
+      "jobId": "job_201",
+      "title": "Senior Software Engineer",
+      "department": "Engineering",
+      "requiredSkills": [
+        { "skillId": "sk_js", "weight": 0.35, "minProficiency": 4 },
+        { "skillId": "sk_node", "weight": 0.35, "minProficiency": 4 },
+        { "skillId": "sk_lead", "weight": 0.3, "minProficiency": 2 }
+      ]
+    },
+    {
+      "jobId": "job_202",
+      "title": "Product Analytics Manager",
+      "department": "Data",
+      "requiredSkills": [
+        { "skillId": "sk_sql", "weight": 0.35, "minProficiency": 4 },
+        { "skillId": "sk_abtest", "weight": 0.35, "minProficiency": 4 },
+        { "skillId": "sk_pm", "weight": 0.3, "minProficiency": 3 }
+      ]
+    }
+  ],
+  "opportunities": [
+    {
+      "opportunityId": "opp_101",
+      "title": "Senior Software Engineer - Platform",
+      "type": "Role",
+      "duration": "Full-time",
+      "jobId": "job_201",
+      "department": "Engineering",
+      "hiringManagerId": "emp_010",
+      "description": "Lead backend platform initiatives and mentor engineers.",
+      "createdAt": "2026-02-20T12:00:00.000Z"
+    },
+    {
+      "opportunityId": "opp_102",
+      "title": "Product Analytics Manager",
+      "type": "Role",
+      "duration": "Full-time",
+      "jobId": "job_202",
+      "department": "Data",
+      "hiringManagerId": "emp_011",
+      "description": "Drive experimentation and analytics strategy.",
+      "createdAt": "2026-02-22T12:00:00.000Z"
+    }
+  ],
+  "applications": [
+    {
+      "applicationId": "app_301",
+      "employeeId": "emp_001",
+      "opportunityId": "opp_101",
+      "status": "Under Review",
+      "createdAt": "2026-02-24T10:00:00.000Z",
+      "updatedAt": "2026-02-25T09:30:00.000Z"
+    }
+  ],
+  "careerPaths": [
+    {
+      "pathId": "path_eng_ic",
+      "jobSequence": ["Software Engineer II", "Senior Software Engineer", "Staff Engineer"],
+      "department": "Engineering"
+    },
+    {
+      "pathId": "path_data_mgmt",
+      "jobSequence": ["Data Analyst", "Senior Data Analyst", "Product Analytics Manager"],
+      "department": "Data"
+    }
+  ],
+  "auditLogs": []
+}
