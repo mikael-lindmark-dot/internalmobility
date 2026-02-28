@@ -51,6 +51,9 @@ const els = {
   journeyForm: document.getElementById('journeyForm'),
   journeyOpportunitySelect: document.getElementById('journeyOpportunitySelect'),
   journeyResult: document.getElementById('journeyResult'),
+  careerPathGraph: document.getElementById('careerPathGraph'),
+  roleArchitectureGraph: document.getElementById('roleArchitectureGraph'),
+  careerDepartmentSelect: document.getElementById('careerDepartmentSelect'),
 
   teamList: document.getElementById('teamList'),
 
@@ -75,6 +78,7 @@ const state = {
   opportunityTypes: [],
   applications: [],
   policies: [],
+  careerPaths: [],
   analytics: null,
   demoUsers: []
 };
@@ -117,6 +121,117 @@ function typeClass(type = '') {
 
 function renderLevel(level = 1) {
   return `<div class="level">${Array.from({ length: 5 }).map((_, i) => `<span class="dot ${i < level ? 'active' : ''}"></span>`).join('')}</div>`;
+}
+
+function escapeXml(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function drawJourneyGraph(journey) {
+  const roles = Array.isArray(journey.pathProgression) && journey.pathProgression.length
+    ? journey.pathProgression
+    : [journey.employee.role, journey.targetOpportunity.title];
+  const spacing = 190;
+  const startX = 80;
+  const y = 110;
+  const width = Math.max(640, startX * 2 + (roles.length - 1) * spacing);
+  const readiness = Math.max(0, Math.min(100, Number(journey.readinessScore || 0)));
+
+  let lines = '';
+  for (let i = 0; i < roles.length - 1; i += 1) {
+    const x1 = startX + i * spacing;
+    const x2 = startX + (i + 1) * spacing;
+    lines += `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="#d7d4d0" stroke-width="3" />`;
+  }
+
+  const nodes = roles
+    .map((role, i) => {
+      const x = startX + i * spacing;
+      const isCurrent = i === 0;
+      const isTarget = i === roles.length - 1;
+      const fill = isTarget ? '#ef6b51' : isCurrent ? '#1a334e' : '#ffffff';
+      const stroke = isTarget || isCurrent ? fill : '#d7d4d0';
+      const textColor = isTarget || isCurrent ? '#ffffff' : '#14182b';
+      return `
+        <g>
+          <circle cx="${x}" cy="${y}" r="24" fill="${fill}" stroke="${stroke}" stroke-width="2"></circle>
+          <text x="${x}" y="${y + 5}" text-anchor="middle" font-size="11" fill="${textColor}" font-weight="700">${i + 1}</text>
+          <text x="${x}" y="${y + 48}" text-anchor="middle" font-size="12" fill="#494a52">${escapeXml(role)}</text>
+        </g>
+      `;
+    })
+    .join('');
+
+  const ringSize = 82;
+  const r = 32;
+  const c = 2 * Math.PI * r;
+  const offset = c - (readiness / 100) * c;
+
+  return `
+    <svg class="graph-svg" viewBox="0 0 ${width} 240" role="img" aria-label="Career journey graph">
+      <g transform="translate(${width - 130}, 45)">
+        <circle cx="${ringSize / 2}" cy="${ringSize / 2}" r="${r}" fill="none" stroke="#ece9e5" stroke-width="8"></circle>
+        <circle cx="${ringSize / 2}" cy="${ringSize / 2}" r="${r}" fill="none" stroke="#ef6b51" stroke-width="8"
+          stroke-dasharray="${c}" stroke-dashoffset="${offset}" transform="rotate(-90 ${ringSize / 2} ${ringSize / 2})"></circle>
+        <text x="${ringSize / 2}" y="${ringSize / 2 + 5}" text-anchor="middle" font-size="16" font-weight="800" fill="#14182b">${readiness}%</text>
+        <text x="${ringSize / 2}" y="${ringSize + 20}" text-anchor="middle" font-size="11" fill="#494a52">Readiness</text>
+      </g>
+      ${lines}
+      ${nodes}
+    </svg>
+  `;
+}
+
+function drawArchitectureGraph(paths, department, selectedRole, targetLabel) {
+  const filtered = department && department !== 'All'
+    ? paths.filter((p) => p.department === department)
+    : paths;
+
+  if (!filtered.length) {
+    return '<p class="muted">No role architecture available for this department.</p>';
+  }
+
+  const rowHeight = 95;
+  const spacing = 170;
+  const startX = 80;
+  const width = Math.max(760, startX * 2 + Math.max(...filtered.map((p) => (p.jobSequence.length - 1) * spacing)));
+  const height = 90 + filtered.length * rowHeight;
+
+  let svg = `<svg class="graph-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Role architecture graph">`;
+
+  filtered.forEach((path, rowIndex) => {
+    const y = 70 + rowIndex * rowHeight;
+    svg += `<text x="20" y="${y + 5}" font-size="12" fill="#494a52" font-weight="700">${escapeXml(path.department)}</text>`;
+
+    path.jobSequence.forEach((role, i) => {
+      const x = startX + i * spacing;
+      if (i < path.jobSequence.length - 1) {
+        const x2 = startX + (i + 1) * spacing;
+        svg += `<line x1="${x}" y1="${y}" x2="${x2}" y2="${y}" stroke="#ced4db" stroke-width="2.5" />`;
+      }
+
+      const isSelected = role === selectedRole;
+      const isTarget = targetLabel && targetLabel.includes(role);
+      const fill = isTarget ? '#ef6b51' : isSelected ? '#1a334e' : '#ffffff';
+      const stroke = isTarget || isSelected ? fill : '#d7d4d0';
+      const labelColor = isTarget || isSelected ? '#ffffff' : '#14182b';
+
+      svg += `
+        <g>
+          <rect x="${x - 58}" y="${y - 21}" width="116" height="42" rx="21" fill="${fill}" stroke="${stroke}" stroke-width="1.5"></rect>
+          <text x="${x}" y="${y + 4}" text-anchor="middle" font-size="11" font-weight="700" fill="${labelColor}">${escapeXml(role)}</text>
+        </g>
+      `;
+    });
+  });
+
+  svg += '</svg>';
+  return svg;
 }
 
 function showAuthView() {
@@ -225,6 +340,7 @@ async function ensureUser() {
 async function loadBaseData() {
   state.opportunityTypes = await api('/api/opportunity-types');
   state.employees = await api('/api/employees');
+  state.careerPaths = await api('/api/career-paths');
 
   if (!state.selectedEmployeeId) {
     if (state.currentUser.role === 'employee') {
@@ -251,6 +367,11 @@ async function loadBaseData() {
   els.typeFilter.innerHTML = typeAll + typeOptions;
   els.oppType.innerHTML = typeOptions;
   els.policyType.innerHTML = '<option value="*">All types (*)</option>' + typeOptions;
+
+  const depts = ['All', ...new Set(state.careerPaths.map((p) => p.department))];
+  const current = els.careerDepartmentSelect.value || 'All';
+  els.careerDepartmentSelect.innerHTML = depts.map((d) => `<option value="${d}">${d}</option>`).join('');
+  els.careerDepartmentSelect.value = depts.includes(current) ? current : 'All';
 }
 
 async function renderDashboard() {
@@ -448,12 +569,29 @@ async function renderApplications() {
 
 async function renderCareerJourney() {
   const targetOpportunityId = els.journeyOpportunitySelect.value;
+  const selectedEmployee = state.employees.find((e) => e.employeeId === state.selectedEmployeeId);
+  const department = els.careerDepartmentSelect.value || selectedEmployee?.department || 'All';
+
   if (!targetOpportunityId || !state.selectedEmployeeId) {
     els.journeyResult.innerHTML = '<p class="muted">Select a target opportunity to generate your roadmap.</p>';
+    els.careerPathGraph.innerHTML = '<p class="muted">Career graph will appear after you choose a target opportunity.</p>';
+    els.roleArchitectureGraph.innerHTML = drawArchitectureGraph(
+      state.careerPaths,
+      department,
+      selectedEmployee?.role,
+      ''
+    );
     return;
   }
 
   const journey = await api(`/api/career-journey?employeeId=${state.selectedEmployeeId}&targetOpportunityId=${targetOpportunityId}`);
+  els.careerPathGraph.innerHTML = drawJourneyGraph(journey);
+  els.roleArchitectureGraph.innerHTML = drawArchitectureGraph(
+    state.careerPaths,
+    department,
+    journey.employee.role,
+    journey.targetOpportunity.title
+  );
 
   els.journeyResult.innerHTML = `
     <h2>${journey.targetOpportunity.title}</h2>
@@ -715,6 +853,12 @@ function bindEvents() {
     await renderMarketplace();
     if (currentPage() === 'career') await renderCareerJourney();
     if (currentPage() === 'dashboard') await renderDashboard();
+  });
+
+  els.careerDepartmentSelect.addEventListener('change', async () => {
+    if (currentPage() === 'career') {
+      await renderCareerJourney();
+    }
   });
 
   els.aspirationForm.addEventListener('submit', async (e) => {

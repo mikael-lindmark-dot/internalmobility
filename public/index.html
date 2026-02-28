@@ -6,7 +6,7 @@
     <title>Internal Talent Mobility Platform</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Poppins:wght@600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -180,8 +180,26 @@
                 <button class="btn btn-primary" type="submit">Generate Roadmap</button>
               </form>
             </article>
+            <article class="card">
+              <h2>Career Path Visualization</h2>
+              <p class="muted">Graph view of your current-to-target journey with readiness overlays.</p>
+              <div id="careerPathGraph" class="graph-wrap"></div>
+            </article>
             <article id="journeyResult" class="card empty-state">
               <p>Select a target opportunity to generate your roadmap.</p>
+            </article>
+            <article class="card">
+              <div class="architecture-head">
+                <div>
+                  <h2>Role Architecture</h2>
+                  <p class="muted">Built-in role structure from configured career paths (HRIS-independent).</p>
+                </div>
+                <div>
+                  <label for="careerDepartmentSelect">Department</label>
+                  <select id="careerDepartmentSelect"></select>
+                </div>
+              </div>
+              <div id="roleArchitectureGraph" class="graph-wrap"></div>
             </article>
           </section>
 
