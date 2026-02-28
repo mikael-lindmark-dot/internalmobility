@@ -7,7 +7,8 @@ An MVP internal mobility platform for employees, managers, and HR. Enables inter
 - **Runtime**: Node.js 20
 - **Framework**: Express 4.x
 - **Frontend**: Static HTML/CSS/JS served from `public/`
-- **Storage**: JSON file (`data/db.json`) by default; PostgreSQL optional via `STORAGE_MODE=postgres`
+- **Database**: PostgreSQL (Replit built-in), configured via `STORAGE_MODE=postgres`
+- **Storage pattern**: Single JSONB column in `app_state` table holding all application data
 
 ## Project Structure
 ```
@@ -16,13 +17,13 @@ src/
   storage.js        # JSON and Postgres storage adapters
   scripts/
     run-migrations.js  # Postgres migration runner
-    seed-postgres.js   # Postgres seeder
+    seed-postgres.js   # Postgres seeder (loads data/db.json into Postgres)
 public/
   index.html        # Frontend UI
   app.js            # Frontend JavaScript
   styles.css        # Styles
 data/
-  db.json           # JSON database (default storage)
+  db.json           # Seed data / JSON fallback
 migrations/
   001_create_app_state.sql
 tests/
@@ -35,9 +36,14 @@ tests/
 - **Port**: 5000, bound to `0.0.0.0`
 
 ## Environment Variables
-- `STORAGE_MODE`: `json` (default) or `postgres`
-- `DATABASE_URL`: PostgreSQL connection string (required when `STORAGE_MODE=postgres`)
+- `STORAGE_MODE`: Set to `postgres` (configured in shared env)
+- `DATABASE_URL`: PostgreSQL connection string (auto-set by Replit)
 - `PORT`: Override port (default 5000)
+
+## Database Setup
+Migrations and seed data have been applied:
+- `npm run migrate` — creates `app_state` table
+- `npm run seed:postgres` — loads `data/db.json` into Postgres
 
 ## User Roles
 - `employee`: Can browse opportunities, apply, manage skills
