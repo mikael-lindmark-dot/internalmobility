@@ -4,119 +4,230 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Internal Talent Mobility Platform</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <header>
-      <h1>Internal Talent Mobility Platform</h1>
-      <p>Employee growth, internal hiring, and workforce visibility in one place.</p>
-    </header>
+    <div id="toastRoot" class="toast-root" aria-live="polite" aria-atomic="true"></div>
 
-    <main>
-      <section class="panel" id="authPanel">
-        <h2>Authentication</h2>
-        <form id="loginForm" class="inline-form">
-          <input id="userId" placeholder="userId" required />
-          <input id="password" type="password" placeholder="password" required />
-          <button type="submit">Login</button>
+    <div id="loginView" class="auth-layout">
+      <section class="auth-card" aria-labelledby="authTitle">
+        <h1 id="authTitle">Internal Talent Mobility Platform</h1>
+        <p class="muted">Sign in to discover opportunities, career journeys, and internal mobility workflows.</p>
+
+        <form id="loginForm" class="form-grid" novalidate>
+          <label for="userId">User ID</label>
+          <input id="userId" name="userId" autocomplete="username" required />
+
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required />
+
+          <button class="btn btn-primary" type="submit">Login</button>
         </form>
-        <div class="actions-row">
-          <button id="logoutBtn" class="secondary" type="button">Logout</button>
+
+        <div class="demo-wrap">
+          <h2>Demo Accounts</h2>
+          <div id="demoUsers" class="demo-grid"></div>
         </div>
-        <div id="sessionInfo" class="card"></div>
-        <div id="demoUsers" class="card"></div>
       </section>
+    </div>
 
-      <section class="panel" id="employeePanel">
-        <h2>Employee</h2>
-        <div class="row">
-          <label for="employeeSelect">Choose employee</label>
-          <select id="employeeSelect"></select>
-        </div>
-        <div id="employeeProfile" class="card"></div>
+    <div id="appView" class="app-shell hidden">
+      <aside id="sidebar" class="sidebar" aria-label="Primary Navigation">
+        <div class="brand">Mobility OS</div>
+        <nav>
+          <a href="#dashboard" data-page="dashboard" class="nav-link">Dashboard</a>
+          <a href="#profile" data-page="profile" class="nav-link">My Profile</a>
+          <a href="#marketplace" data-page="marketplace" class="nav-link">Marketplace</a>
+          <a href="#applications" data-page="applications" class="nav-link">Applications</a>
+          <a href="#career" data-page="career" class="nav-link">Career Path</a>
+          <a href="#team" data-page="team" class="nav-link nav-role nav-manager">Team</a>
+          <a href="#analytics" data-page="analytics" class="nav-link nav-role nav-manager">Analytics</a>
+          <a href="#policies" data-page="policies" class="nav-link nav-role nav-manager">Policies</a>
+        </nav>
+      </aside>
 
-        <h3>Update Career Aspirations</h3>
-        <form id="aspirationForm" class="grid-form">
-          <textarea id="careerAspirations" rows="3" placeholder="I want to grow into..."></textarea>
-          <button type="submit">Save</button>
-        </form>
+      <div class="main-shell">
+        <header class="topbar">
+          <button id="menuToggle" class="btn btn-ghost menu-toggle" type="button" aria-label="Toggle menu">☰</button>
+          <div class="topbar-spacer"></div>
+          <div id="sessionInfo" class="session-info"></div>
+          <button id="logoutBtn" class="btn btn-secondary" type="button">Logout</button>
+        </header>
 
-        <h3>Add or Update Skill</h3>
-        <form id="skillForm" class="grid-form">
-          <input id="skillName" placeholder="Skill name" required />
-          <input id="skillCategory" placeholder="Category" value="General" />
-          <input id="skillLevel" type="number" min="1" max="5" placeholder="Proficiency 1-5" required />
-          <button type="submit">Save Skill</button>
-        </form>
-      </section>
+        <main class="content" id="contentRoot">
+          <section data-page-view="dashboard" class="page">
+            <h1>Dashboard</h1>
+            <p class="muted" id="welcomeMessage"></p>
+            <div id="dashboardCards" class="kpi-grid"></div>
+            <div id="dashboardActions" class="card"></div>
+          </section>
 
-      <section class="panel" id="journeyPanel">
-        <h2>Career Journey Roadmap</h2>
-        <form id="journeyForm" class="inline-form-wide">
-          <select id="journeyOpportunitySelect"></select>
-          <button type="submit">Generate Journey</button>
-        </form>
-        <div id="journeyResult" class="card"></div>
-      </section>
+          <section data-page-view="profile" class="page hidden">
+            <h1>My Profile</h1>
+            <div class="card">
+              <div id="employeeSelectorWrap" class="row hidden">
+                <label for="employeeSelect">Employee</label>
+                <select id="employeeSelect"></select>
+              </div>
+              <div id="employeeProfile"></div>
+            </div>
 
-      <section class="panel">
-        <h2>Opportunity Marketplace</h2>
-        <form id="searchForm" class="inline-form-wide">
-          <input id="searchText" placeholder="Search roles, projects, mentorship, learning" />
-          <select id="departmentFilter">
-            <option value="">All departments</option>
-            <option value="Engineering">Engineering</option>
-            <option value="Data">Data</option>
-            <option value="Product">Product</option>
-          </select>
-          <select id="typeFilter">
-            <option value="">All opportunity types</option>
-          </select>
-          <button type="submit">Search</button>
-        </form>
-        <div id="opportunities" class="card-list"></div>
-      </section>
+            <div class="grid-2">
+              <article class="card">
+                <h2>Career Aspirations</h2>
+                <form id="aspirationForm" class="form-grid">
+                  <label for="careerAspirations">Aspirations</label>
+                  <textarea id="careerAspirations" rows="4"></textarea>
+                  <button class="btn btn-primary" type="submit">Save Aspirations</button>
+                </form>
+              </article>
 
-      <section class="panel">
-        <h2>Applications</h2>
-        <div id="applications" class="card-list"></div>
-      </section>
+              <article class="card">
+                <h2>Add Skill</h2>
+                <form id="skillForm" class="form-grid">
+                  <label for="skillName">Skill Name</label>
+                  <input id="skillName" required />
 
-      <section class="panel" id="managerPanel">
-        <h2>Create Opportunity</h2>
-        <form id="opportunityForm" class="grid-form">
-          <input id="oppTitle" placeholder="Opportunity title" required />
-          <select id="oppType" required></select>
-          <input id="oppJobId" placeholder="Job profile ID (required for Role/Stretch)" />
-          <input id="oppDepartment" placeholder="Department" required />
-          <input id="oppDuration" placeholder="Duration (e.g. 8 weeks)" />
-          <input id="oppRelatedSkills" placeholder="Related skill IDs (comma-separated)" />
-          <textarea id="oppDescription" rows="3" placeholder="Description"></textarea>
-          <button type="submit">Create Opportunity</button>
-        </form>
-      </section>
+                  <label for="skillCategory">Category</label>
+                  <input id="skillCategory" value="General" />
 
-      <section class="panel" id="policyPanel">
-        <h2>Approval Policies</h2>
-        <div id="policyList" class="card-list"></div>
-        <form id="policyForm" class="grid-form">
-          <input id="policyName" placeholder="Policy name" required />
-          <input id="policyDepartment" placeholder="Department or *" value="*" required />
-          <select id="policyType" required></select>
-          <textarea id="policyStages" rows="3" placeholder='Stages JSON, e.g. [{"stageId":"manager_release","approverType":"employee_manager","required":true}]' required></textarea>
-          <button type="submit">Create Policy (HR only)</button>
-        </form>
-      </section>
+                  <label for="skillLevel">Proficiency (1-5)</label>
+                  <input id="skillLevel" type="number" min="1" max="5" required />
 
-      <section class="panel" id="analyticsPanel">
-        <h2>HR/Manager Analytics</h2>
-        <div id="analytics" class="card"></div>
-        <a id="exportLink" class="button-link" href="#">Download CSV Export (HR only)</a>
-      </section>
+                  <button class="btn btn-primary" type="submit">Save Skill</button>
+                </form>
+              </article>
+            </div>
 
-      <section id="message" class="message"></section>
-    </main>
+            <article class="card">
+              <h2>Skills</h2>
+              <div id="skillsGrid" class="skills-grid"></div>
+            </article>
+          </section>
 
+          <section data-page-view="marketplace" class="page hidden">
+            <h1>Opportunity Marketplace</h1>
+            <article class="card">
+              <form id="searchForm" class="search-grid">
+                <div>
+                  <label for="searchText">Search</label>
+                  <input id="searchText" placeholder="Search roles, projects, mentorship, learning" />
+                </div>
+                <div>
+                  <label for="departmentFilter">Department</label>
+                  <select id="departmentFilter">
+                    <option value="">All departments</option>
+                    <option value="Engineering">Engineering</option>
+                    <option value="Data">Data</option>
+                    <option value="Product">Product</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="typeFilter">Type</label>
+                  <select id="typeFilter"></select>
+                </div>
+                <button class="btn btn-primary" type="submit">Search</button>
+              </form>
+            </article>
+
+            <article class="card hidden" id="createOpportunityWrap">
+              <h2>Create Opportunity</h2>
+              <form id="opportunityForm" class="form-grid">
+                <label for="oppTitle">Title</label>
+                <input id="oppTitle" required />
+
+                <label for="oppType">Type</label>
+                <select id="oppType" required></select>
+
+                <label for="oppJobId">Job ID (required for Role/Stretch)</label>
+                <input id="oppJobId" />
+
+                <label for="oppDepartment">Department</label>
+                <input id="oppDepartment" required />
+
+                <label for="oppDuration">Duration</label>
+                <input id="oppDuration" placeholder="e.g. Full-time, 8 weeks" />
+
+                <label for="oppRelatedSkills">Related skill IDs (comma-separated)</label>
+                <input id="oppRelatedSkills" placeholder="sk_js,sk_node" />
+
+                <label for="oppDescription">Description</label>
+                <textarea id="oppDescription" rows="3"></textarea>
+
+                <button class="btn btn-primary" type="submit">Create Opportunity</button>
+              </form>
+            </article>
+
+            <div id="opportunities" class="opportunity-grid"></div>
+          </section>
+
+          <section data-page-view="applications" class="page hidden">
+            <h1>Applications</h1>
+            <div id="applications" class="card-list"></div>
+          </section>
+
+          <section data-page-view="career" class="page hidden">
+            <h1>Career Journey</h1>
+            <article class="card">
+              <form id="journeyForm" class="search-grid journey-grid">
+                <div>
+                  <label for="journeyOpportunitySelect">Target Opportunity</label>
+                  <select id="journeyOpportunitySelect"></select>
+                </div>
+                <button class="btn btn-primary" type="submit">Generate Roadmap</button>
+              </form>
+            </article>
+            <article id="journeyResult" class="card empty-state">
+              <p>Select a target opportunity to generate your roadmap.</p>
+            </article>
+          </section>
+
+          <section data-page-view="team" class="page hidden">
+            <h1>Team</h1>
+            <div id="teamList" class="card-list"></div>
+          </section>
+
+          <section data-page-view="analytics" class="page hidden">
+            <h1>Analytics</h1>
+            <div id="analyticsCards" class="kpi-grid"></div>
+            <article class="card">
+              <h2>Opportunity Mix</h2>
+              <div id="opportunityMix"></div>
+            </article>
+            <button id="exportLink" class="btn btn-secondary" type="button">Download CSV Export (HR only)</button>
+          </section>
+
+          <section data-page-view="policies" class="page hidden">
+            <h1>Approval Policies</h1>
+            <div id="policyList" class="card-list"></div>
+            <article class="card">
+              <h2>Create Policy</h2>
+              <p class="muted">Managers can view policies. HR can create and update policies.</p>
+              <form id="policyForm" class="form-grid">
+                <label for="policyName">Policy Name</label>
+                <input id="policyName" required />
+
+                <label for="policyDepartment">Department or *</label>
+                <input id="policyDepartment" value="*" required />
+
+                <label for="policyType">Opportunity Type</label>
+                <select id="policyType"></select>
+
+                <label for="policyStages">Stages JSON</label>
+                <textarea id="policyStages" rows="4" required>[{"stageId":"manager_release","approverType":"employee_manager","required":true}]</textarea>
+
+                <button class="btn btn-primary" type="submit">Create Policy</button>
+              </form>
+            </article>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <script src="https://unpkg.com/lucide@latest"></script>
     <script src="/app.js"></script>
   </body>
 </html>
