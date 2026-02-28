@@ -3,7 +3,8 @@ const path = require('path');
 const crypto = require('crypto');
 const { createStore } = require('./storage');
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
+const HOST = '0.0.0.0';
 
 const APPLICATION_STATUSES = [
   'Draft',
@@ -981,8 +982,8 @@ function createApp(options = {}) {
 
 function startServer(options = {}) {
   const { app } = createApp(options);
-  const server = app.listen(PORT, () => {
-    console.log(`Internal Talent Mobility Platform listening on http://localhost:${PORT}`);
+  const server = app.listen(PORT, HOST, () => {
+    console.log(`Internal Talent Mobility Platform listening on http://${HOST}:${PORT}`);
   });
   return server;
 }
