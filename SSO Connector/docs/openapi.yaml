@@ -1,0 +1,187 @@
+openapi: 3.0.3
+info:
+  title: SSO Connector API
+  version: 0.1.0
+  description: Identity control-plane API for managing Replit+Okta SSO/provisioning.
+servers:
+  - url: http://localhost:3000
+paths:
+  /health:
+    get:
+      summary: Service health and entity counts
+      responses:
+        '200':
+          description: Healthy
+  /applications:
+    post:
+      summary: Create application
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateApplicationRequest'
+      responses:
+        '201':
+          description: Created
+    get:
+      summary: List applications
+      responses:
+        '200':
+          description: OK
+  /applications/{id}:
+    get:
+      summary: Get application details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: Not found
+  /applications/{id}/audience-mappings:
+    post:
+      summary: Replace audience-role mappings for an app
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceMappingsRequest'
+      responses:
+        '200':
+          description: Updated
+  /applications/{id}/okta/provision:
+    post:
+      summary: Provision Okta integration metadata (dry-run by default)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProvisionRequest'
+      responses:
+        '200':
+          description: Provisioned
+  /applications/{id}/publish-config:
+    post:
+      summary: Publish versioned app config for consumers
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Published
+  /applications/{id}/config:
+    get:
+      summary: Get latest published config for app
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+        '404':
+          description: No config
+  /applications/{id}/drift:
+    get:
+      summary: Evaluate local drift signals for app setup
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+  /audit-events:
+    get:
+      summary: List audit events
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    CreateApplicationRequest:
+      type: object
+      required: [name, slug, env, redirectUris, createdBy]
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+          pattern: '^[a-z0-9-]+$'
+        env:
+          type: string
+          enum: [dev, staging, prod]
+        redirectUris:
+          type: array
+          items:
+            type: string
+            format: uri
+        postLogoutRedirectUris:
+          type: array
+          items:
+            type: string
+            format: uri
+        provisioningMode:
+          type: string
+          enum: [none, jit, scim]
+        createdBy:
+          type: string
+    ReplaceMappingsRequest:
+      type: object
+      required: [mappings]
+      properties:
+        mappings:
+          type: array
+          items:
+            type: object
+            required: [audienceName, roleName]
+            properties:
+              audienceName:
+                type: string
+              roleName:
+                type: string
+              oktaGroupName:
+                type: string
+    ProvisionRequest:
+      type: object
+      properties:
+        actor:
+          type: string
+        scimEnabled:
+          type: boolean
+        scimBaseUrl:
+          type: string
+          format: uri

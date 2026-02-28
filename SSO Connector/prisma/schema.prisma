@@ -1,0 +1,115 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Environment {
+  dev
+  staging
+  prod
+}
+
+enum ProvisioningMode {
+  none
+  jit
+  scim
+}
+
+enum AppStatus {
+  active
+  inactive
+}
+
+model Application {
+  id                      String                   @id @default(cuid())
+  name                    String
+  slug                    String
+  env                     Environment
+  redirectUrisJson        String
+  postLogoutRedirectsJson String
+  provisioningMode        ProvisioningMode         @default(jit)
+  status                  AppStatus                @default(active)
+  createdBy               String
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+
+  mappings                AppAudienceRoleMapping[]
+  oktaIntegration         OktaIntegration?
+  publishedConfigs        PublishedConfig[]
+
+  @@unique([slug, env])
+}
+
+model Audience {
+  id          String                   @id @default(cuid())
+  name        String                   @unique
+  description String?
+  mappings    AppAudienceRoleMapping[]
+  createdAt   DateTime                 @default(now())
+}
+
+model Role {
+  id        String                   @id @default(cuid())
+  name      String                   @unique
+  mappings  AppAudienceRoleMapping[]
+  createdAt DateTime                 @default(now())
+}
+
+model AppAudienceRoleMapping {
+  id             String      @id @default(cuid())
+  applicationId  String
+  audienceId     String
+  roleId         String
+  oktaGroupName  String      @unique
+  createdAt      DateTime    @default(now())
+
+  application    Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  audience       Audience    @relation(fields: [audienceId], references: [id], onDelete: Restrict)
+  role           Role        @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@unique([applicationId, audienceId, roleId])
+}
+
+model OktaIntegration {
+  id           String      @id @default(cuid())
+  applicationId String     @unique
+  oktaAppId    String
+  oktaClientId String
+  oktaIssuer   String
+  scimEnabled  Boolean     @default(false)
+  scimBaseUrl  String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  application  Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+}
+
+model PublishedConfig {
+  id            String      @id @default(cuid())
+  applicationId String
+  version       Int
+  configJson    String
+  publishedAt   DateTime    @default(now())
+
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@unique([applicationId, version])
+}
+
+model AuditEvent {
+  id          String   @id @default(cuid())
+  actor       String
+  action      String
+  targetType  String
+  targetId    String
+  beforeJson  String?
+  afterJson   String?
+  createdAt   DateTime @default(now())
+
+  @@index([targetType, targetId])
+  @@index([createdAt])
+}
