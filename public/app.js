@@ -25,9 +25,12 @@ const els = {
   skillsGrid: document.getElementById('skillsGrid'),
   aspirationForm: document.getElementById('aspirationForm'),
   skillForm: document.getElementById('skillForm'),
+  skillRequestForm: document.getElementById('skillRequestForm'),
   careerAspirations: document.getElementById('careerAspirations'),
-  skillName: document.getElementById('skillName'),
-  skillCategory: document.getElementById('skillCategory'),
+  skillSelect: document.getElementById('skillSelect'),
+  requestedSkillName: document.getElementById('requestedSkillName'),
+  requestedSkillCategory: document.getElementById('requestedSkillCategory'),
+  requestedSkillReason: document.getElementById('requestedSkillReason'),
   skillLevel: document.getElementById('skillLevel'),
 
   searchForm: document.getElementById('searchForm'),
@@ -57,6 +60,27 @@ const els = {
 
   teamList: document.getElementById('teamList'),
 
+  skillsLibraryList: document.getElementById('skillsLibraryList'),
+  skillRequestsList: document.getElementById('skillRequestsList'),
+  skillsLibraryForm: document.getElementById('skillsLibraryForm'),
+  librarySkillName: document.getElementById('librarySkillName'),
+  librarySkillCategory: document.getElementById('librarySkillCategory'),
+
+  jobProfilesList: document.getElementById('jobProfilesList'),
+  jobProfileForm: document.getElementById('jobProfileForm'),
+  jobProfileTitle: document.getElementById('jobProfileTitle'),
+  jobProfileDepartment: document.getElementById('jobProfileDepartment'),
+  jobProfileSkillSelect: document.getElementById('jobProfileSkillSelect'),
+  jobProfileSkillMinProficiency: document.getElementById('jobProfileSkillMinProficiency'),
+  jobProfileSkillWeight: document.getElementById('jobProfileSkillWeight'),
+  addJobProfileSkillBtn: document.getElementById('addJobProfileSkillBtn'),
+  jobProfileSkillDraftList: document.getElementById('jobProfileSkillDraftList'),
+  jobProfileRequiredSkills: document.getElementById('jobProfileRequiredSkills'),
+  careerPathsList: document.getElementById('careerPathsList'),
+  careerPathForm: document.getElementById('careerPathForm'),
+  careerPathDepartment: document.getElementById('careerPathDepartment'),
+  careerPathSequence: document.getElementById('careerPathSequence'),
+
   analyticsCards: document.getElementById('analyticsCards'),
   opportunityMix: document.getElementById('opportunityMix'),
   exportLink: document.getElementById('exportLink'),
@@ -79,6 +103,10 @@ const state = {
   applications: [],
   policies: [],
   careerPaths: [],
+  skills: [],
+  skillRequests: [],
+  jobProfiles: [],
+  jobProfileDraftSkills: [],
   analytics: null,
   demoUsers: []
 };
@@ -234,6 +262,36 @@ function drawArchitectureGraph(paths, department, selectedRole, targetLabel) {
   return svg;
 }
 
+function updateJobProfileRequiredSkillsField() {
+  els.jobProfileRequiredSkills.value = JSON.stringify(state.jobProfileDraftSkills);
+}
+
+function renderJobProfileSkillDraft() {
+  if (!els.jobProfileSkillDraftList) return;
+  if (!state.jobProfileDraftSkills.length) {
+    els.jobProfileSkillDraftList.innerHTML = '<article class="item"><p class="muted">No required skills added yet.</p></article>';
+    updateJobProfileRequiredSkillsField();
+    return;
+  }
+
+  els.jobProfileSkillDraftList.innerHTML = state.jobProfileDraftSkills
+    .map((skill, index) => {
+      const skillName = state.skills.find((s) => s.skillId === skill.skillId)?.skillName || skill.skillId;
+      return `
+        <article class="item">
+          <div class="actions">
+            <strong>${skillName}</strong>
+            <button class="btn btn-danger" type="button" data-remove-job-skill="${index}">Remove</button>
+          </div>
+          <p class="muted">Min proficiency: ${skill.minProficiency} · Weight: ${skill.weight}</p>
+        </article>
+      `;
+    })
+    .join('');
+
+  updateJobProfileRequiredSkillsField();
+}
+
 function showAuthView() {
   els.loginView.classList.remove('hidden');
   els.appView.classList.add('hidden');
@@ -254,7 +312,7 @@ function setRoute(route) {
 }
 
 function visibleForRole(page, role) {
-  if (['analytics', 'team', 'policies'].includes(page)) {
+  if (['analytics', 'team', 'policies', 'skills', 'roles'].includes(page)) {
     return role === 'manager' || role === 'hr';
   }
   return true;
@@ -279,6 +337,15 @@ function applyRoleVisibility() {
   Array.from(els.policyForm.elements).forEach((el) => {
     el.disabled = !policyEditable;
   });
+  Array.from(els.skillsLibraryForm.elements).forEach((el) => {
+    el.disabled = !policyEditable;
+  });
+  Array.from(els.jobProfileForm.elements).forEach((el) => {
+    el.disabled = !policyEditable;
+  });
+  Array.from(els.careerPathForm.elements).forEach((el) => {
+    el.disabled = !policyEditable;
+  });
 
   const canEditProfile = canEditSelectedEmployee();
   Array.from(els.aspirationForm.elements).forEach((el) => {
@@ -286,6 +353,9 @@ function applyRoleVisibility() {
   });
   Array.from(els.skillForm.elements).forEach((el) => {
     el.disabled = !canEditProfile;
+  });
+  Array.from(els.skillRequestForm.elements).forEach((el) => {
+    el.disabled = role !== 'employee';
   });
 }
 
@@ -340,7 +410,10 @@ async function ensureUser() {
 async function loadBaseData() {
   state.opportunityTypes = await api('/api/opportunity-types');
   state.employees = await api('/api/employees');
+  state.skills = await api('/api/skills');
   state.careerPaths = await api('/api/career-paths');
+  state.jobProfiles = await api('/api/job-profiles');
+  state.skillRequests = await api('/api/skill-requests');
 
   if (!state.selectedEmployeeId) {
     if (state.currentUser.role === 'employee') {
@@ -367,6 +440,13 @@ async function loadBaseData() {
   els.typeFilter.innerHTML = typeAll + typeOptions;
   els.oppType.innerHTML = typeOptions;
   els.policyType.innerHTML = '<option value="*">All types (*)</option>' + typeOptions;
+  els.skillSelect.innerHTML = state.skills
+    .map((s) => `<option value="${s.skillId}">${s.skillName} (${s.category || 'General'})</option>`)
+    .join('');
+  els.jobProfileSkillSelect.innerHTML = state.skills
+    .map((s) => `<option value="${s.skillId}">${s.skillName} (${s.category || 'General'})</option>`)
+    .join('');
+  renderJobProfileSkillDraft();
 
   const depts = ['All', ...new Set(state.careerPaths.map((p) => p.department))];
   const current = els.careerDepartmentSelect.value || 'All';
@@ -448,14 +528,18 @@ async function renderProfile() {
 
   els.skillsGrid.innerHTML = employee.skills.length
     ? employee.skills
-        .map((s) => `
+        .map((s) => {
+          const libSkill = state.skills.find((lib) => lib.skillId === s.skillId);
+          const category = libSkill?.category || 'General';
+          return `
           <article class="skill-card">
             <strong>${s.skillName}</strong>
-            <div class="muted">${s.category || 'General'}</div>
+            <div class="muted">${category}</div>
             ${renderLevel(Number(s.proficiency || 1))}
             <div class="muted">Endorsements: ${(s.endorsedBy || []).length}</div>
           </article>
-        `)
+        `;
+        })
         .join('')
     : '<div class="empty-state">No skills added yet.</div>';
 }
@@ -709,6 +793,89 @@ async function renderPolicies() {
     : '<article class="card empty-state"><p>No approval policies configured.</p></article>';
 }
 
+async function renderSkillsLibrary() {
+  if (state.currentUser.role !== 'manager' && state.currentUser.role !== 'hr') {
+    els.skillsLibraryList.innerHTML = '<article class="card empty-state"><p>Skills library unavailable for this role.</p></article>';
+    els.skillRequestsList.innerHTML = '';
+    return;
+  }
+
+  els.skillsLibraryList.innerHTML = state.skills.length
+    ? state.skills
+        .map((skill) => `
+          <article class="item">
+            <strong>${skill.skillName}</strong>
+            <p class="muted">${skill.category || 'General'}</p>
+            <p class="muted">ID: ${skill.skillId}</p>
+          </article>
+        `)
+        .join('')
+    : '<article class="card empty-state"><p>No skills in repository yet.</p></article>';
+
+  els.skillRequestsList.innerHTML = state.skillRequests.length
+    ? state.skillRequests
+        .map((req) => `
+          <article class="item">
+            <div class="actions">
+              <strong>${req.skillName}</strong>
+              <span class="status-badge ${statusClass(req.status)}">${req.status}</span>
+            </div>
+            <p class="muted">Requested by: ${req.employee?.name || req.employeeId}</p>
+            <p class="muted">Category: ${req.category || 'General'}</p>
+            <p>${req.reason || 'No reason provided.'}</p>
+            ${state.currentUser.role === 'hr' && req.status === 'Pending' ? `
+              <div class="actions">
+                <button class="btn btn-primary" type="button" data-skillreq-approve="${req.requestId}">Approve</button>
+                <button class="btn btn-danger" type="button" data-skillreq-reject="${req.requestId}">Reject</button>
+              </div>
+            ` : ''}
+          </article>
+        `)
+        .join('')
+    : '<article class="card empty-state"><p>No skill requests.</p></article>';
+
+  els.skillRequestsList.querySelectorAll('[data-skillreq-approve]').forEach((btn) => {
+    btn.addEventListener('click', () => reviewSkillRequest(btn.getAttribute('data-skillreq-approve'), 'Approved'));
+  });
+  els.skillRequestsList.querySelectorAll('[data-skillreq-reject]').forEach((btn) => {
+    btn.addEventListener('click', () => reviewSkillRequest(btn.getAttribute('data-skillreq-reject'), 'Rejected'));
+  });
+}
+
+async function renderRoleDesign() {
+  if (state.currentUser.role !== 'manager' && state.currentUser.role !== 'hr') {
+    els.jobProfilesList.innerHTML = '<article class="card empty-state"><p>Role design unavailable for this role.</p></article>';
+    els.careerPathsList.innerHTML = '';
+    return;
+  }
+
+  els.jobProfilesList.innerHTML = state.jobProfiles.length
+    ? state.jobProfiles
+        .map((profile) => `
+          <article class="item">
+            <strong>${profile.title}</strong>
+            <p class="muted">${profile.department} · ${profile.jobId}</p>
+            <p>Required Skills: ${(profile.requiredSkillsDetailed || [])
+              .map((s) => `${s.skillName} (L${s.minProficiency}, w${s.weight})`)
+              .join(', ') || 'None'}</p>
+          </article>
+        `)
+        .join('')
+    : '<article class="card empty-state"><p>No job profiles configured.</p></article>';
+
+  els.careerPathsList.innerHTML = state.careerPaths.length
+    ? state.careerPaths
+        .map((path) => `
+          <article class="item">
+            <strong>${path.department}</strong>
+            <p>${(path.jobSequence || []).join(' -> ')}</p>
+            <p class="muted">Path ID: ${path.pathId}</p>
+          </article>
+        `)
+        .join('')
+    : '<article class="card empty-state"><p>No career paths configured.</p></article>';
+}
+
 async function applyOpportunity(opportunityId) {
   try {
     await api('/api/applications', {
@@ -743,6 +910,20 @@ async function decideApproval(applicationId, decision) {
     await refreshData();
     await renderApplications();
     await renderDashboard();
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+async function reviewSkillRequest(requestId, status) {
+  try {
+    await api(`/api/skill-requests/${requestId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, reviewNotes: `${status} from HR dashboard` })
+    });
+    toast(`Skill request ${status.toLowerCase()}.`);
+    await refreshData();
+    await renderSkillsLibrary();
   } catch (error) {
     toast(error.message, true);
   }
@@ -783,6 +964,8 @@ async function renderByRoute() {
   if (page === 'marketplace') await renderMarketplace();
   if (page === 'applications') await renderApplications();
   if (page === 'career') await renderCareerJourney();
+  if (page === 'skills') await renderSkillsLibrary();
+  if (page === 'roles') await renderRoleDesign();
   if (page === 'team') renderTeam();
   if (page === 'analytics') await renderAnalytics();
   if (page === 'policies') await renderPolicies();
@@ -881,16 +1064,34 @@ function bindEvents() {
       await api(`/api/employees/${state.selectedEmployeeId}/skills`, {
         method: 'POST',
         body: JSON.stringify({
-          skillName: els.skillName.value,
-          category: els.skillCategory.value,
+          skillId: els.skillSelect.value,
           proficiency: Number(els.skillLevel.value)
         })
       });
       els.skillForm.reset();
-      els.skillCategory.value = 'General';
       toast('Skill saved.');
       await renderProfile();
       await renderMarketplace();
+    } catch (error) {
+      toast(error.message, true);
+    }
+  });
+
+  els.skillRequestForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      await api('/api/skill-requests', {
+        method: 'POST',
+        body: JSON.stringify({
+          skillName: els.requestedSkillName.value,
+          category: els.requestedSkillCategory.value || 'General',
+          reason: els.requestedSkillReason.value
+        })
+      });
+      els.skillRequestForm.reset();
+      toast('Skill request submitted.');
+      await refreshData();
+      if (currentPage() === 'skills') await renderSkillsLibrary();
     } catch (error) {
       toast(error.message, true);
     }
@@ -960,6 +1161,114 @@ function bindEvents() {
       els.policyForm.reset();
       els.policyDepartment.value = '*';
       await renderPolicies();
+    } catch (error) {
+      toast(error.message, true);
+    }
+  });
+
+  els.skillsLibraryForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      await api('/api/skills', {
+        method: 'POST',
+        body: JSON.stringify({
+          skillName: els.librarySkillName.value,
+          category: els.librarySkillCategory.value || 'General'
+        })
+      });
+      els.skillsLibraryForm.reset();
+      els.librarySkillCategory.value = 'General';
+      toast('Skill added to repository.');
+      await refreshData();
+      if (currentPage() === 'skills') await renderSkillsLibrary();
+      await renderProfile();
+    } catch (error) {
+      toast(error.message, true);
+    }
+  });
+
+  els.jobProfileForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      if (!state.jobProfileDraftSkills.length) {
+        throw new Error('Add at least one required skill to the job profile.');
+      }
+      await api('/api/job-profiles', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: els.jobProfileTitle.value,
+          department: els.jobProfileDepartment.value,
+          requiredSkills: state.jobProfileDraftSkills
+        })
+      });
+      els.jobProfileForm.reset();
+      state.jobProfileDraftSkills = [];
+      renderJobProfileSkillDraft();
+      els.jobProfileSkillMinProficiency.value = '3';
+      els.jobProfileSkillWeight.value = '0.5';
+      toast('Job profile created.');
+      await refreshData();
+      if (currentPage() === 'roles') await renderRoleDesign();
+    } catch (error) {
+      toast(error.message, true);
+    }
+  });
+
+  els.addJobProfileSkillBtn.addEventListener('click', () => {
+    try {
+      const skillId = els.jobProfileSkillSelect.value;
+      const minProficiency = Number(els.jobProfileSkillMinProficiency.value);
+      const weight = Number(els.jobProfileSkillWeight.value);
+
+      if (!skillId) {
+        throw new Error('Choose a skill from the library.');
+      }
+      if (!Number.isInteger(minProficiency) || minProficiency < 1 || minProficiency > 5) {
+        throw new Error('Minimum proficiency must be an integer from 1 to 5.');
+      }
+      if (!Number.isFinite(weight) || weight <= 0 || weight > 1) {
+        throw new Error('Weight must be a number between 0 and 1.');
+      }
+      if (state.jobProfileDraftSkills.some((item) => item.skillId === skillId)) {
+        throw new Error('This skill is already added to the job profile.');
+      }
+
+      state.jobProfileDraftSkills.push({ skillId, minProficiency, weight });
+      renderJobProfileSkillDraft();
+      toast('Required skill added to job profile draft.');
+    } catch (error) {
+      toast(error.message, true);
+    }
+  });
+
+  els.jobProfileSkillDraftList.addEventListener('click', (event) => {
+    const removeButton = event.target.closest('[data-remove-job-skill]');
+    if (!removeButton) return;
+    const index = Number(removeButton.getAttribute('data-remove-job-skill'));
+    if (!Number.isInteger(index)) return;
+    state.jobProfileDraftSkills.splice(index, 1);
+    renderJobProfileSkillDraft();
+  });
+
+  els.careerPathForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      const sequence = els.careerPathSequence.value
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      await api('/api/career-paths', {
+        method: 'POST',
+        body: JSON.stringify({
+          department: els.careerPathDepartment.value,
+          jobSequence: sequence
+        })
+      });
+      els.careerPathForm.reset();
+      toast('Career path created.');
+      await refreshData();
+      if (currentPage() === 'roles') await renderRoleDesign();
+      if (currentPage() === 'career') await renderCareerJourney();
     } catch (error) {
       toast(error.message, true);
     }

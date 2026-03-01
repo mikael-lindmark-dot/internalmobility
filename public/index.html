@@ -43,6 +43,8 @@
           <a href="#marketplace" data-page="marketplace" class="nav-link">Marketplace</a>
           <a href="#applications" data-page="applications" class="nav-link">Applications</a>
           <a href="#career" data-page="career" class="nav-link">Career Path</a>
+          <a href="#skills" data-page="skills" class="nav-link nav-role nav-manager">Skills Library</a>
+          <a href="#roles" data-page="roles" class="nav-link nav-role nav-manager">Role Design</a>
           <a href="#team" data-page="team" class="nav-link nav-role nav-manager">Team</a>
           <a href="#analytics" data-page="analytics" class="nav-link nav-role nav-manager">Analytics</a>
           <a href="#policies" data-page="policies" class="nav-link nav-role nav-manager">Policies</a>
@@ -88,16 +90,23 @@
               <article class="card">
                 <h2>Add Skill</h2>
                 <form id="skillForm" class="form-grid">
-                  <label for="skillName">Skill Name</label>
-                  <input id="skillName" required />
-
-                  <label for="skillCategory">Category</label>
-                  <input id="skillCategory" value="General" />
+                  <label for="skillSelect">Skill (from library)</label>
+                  <select id="skillSelect" required></select>
 
                   <label for="skillLevel">Proficiency (1-5)</label>
                   <input id="skillLevel" type="number" min="1" max="5" required />
 
                   <button class="btn btn-primary" type="submit">Save Skill</button>
+                </form>
+                <form id="skillRequestForm" class="form-grid">
+                  <h3>Request New Skill</h3>
+                  <label for="requestedSkillName">Requested Skill Name</label>
+                  <input id="requestedSkillName" />
+                  <label for="requestedSkillCategory">Category</label>
+                  <input id="requestedSkillCategory" placeholder="General" />
+                  <label for="requestedSkillReason">Reason</label>
+                  <textarea id="requestedSkillReason" rows="2" placeholder="Why this skill should be added"></textarea>
+                  <button class="btn btn-secondary" type="submit">Submit Skill Request</button>
                 </form>
               </article>
             </div>
@@ -206,6 +215,69 @@
           <section data-page-view="team" class="page hidden">
             <h1>Team</h1>
             <div id="teamList" class="card-list"></div>
+          </section>
+
+          <section data-page-view="skills" class="page hidden">
+            <h1>Skills Library</h1>
+            <article class="card">
+              <h2>Central Skills Repository</h2>
+              <div id="skillsLibraryList" class="card-list"></div>
+            </article>
+            <article class="card">
+              <h2>Skill Requests</h2>
+              <div id="skillRequestsList" class="card-list"></div>
+            </article>
+            <article class="card">
+              <h2>Add Skill (HR)</h2>
+              <form id="skillsLibraryForm" class="form-grid">
+                <label for="librarySkillName">Skill Name</label>
+                <input id="librarySkillName" required />
+                <label for="librarySkillCategory">Category</label>
+                <input id="librarySkillCategory" value="General" />
+                <button class="btn btn-primary" type="submit">Add to Library</button>
+              </form>
+            </article>
+          </section>
+
+          <section data-page-view="roles" class="page hidden">
+            <h1>Role Design</h1>
+            <article class="card">
+              <h2>Job Profiles</h2>
+              <div id="jobProfilesList" class="card-list"></div>
+            </article>
+            <article class="card">
+              <h2>Create Job Profile (HR)</h2>
+              <form id="jobProfileForm" class="form-grid">
+                <label for="jobProfileTitle">Title</label>
+                <input id="jobProfileTitle" required />
+                <label for="jobProfileDepartment">Department</label>
+                <input id="jobProfileDepartment" required />
+                <label for="jobProfileSkillSelect">Add Required Skill</label>
+                <select id="jobProfileSkillSelect"></select>
+                <label for="jobProfileSkillMinProficiency">Minimum Proficiency (1-5)</label>
+                <input id="jobProfileSkillMinProficiency" type="number" min="1" max="5" value="3" />
+                <label for="jobProfileSkillWeight">Weight (0-1)</label>
+                <input id="jobProfileSkillWeight" type="number" min="0.1" max="1" step="0.1" value="0.5" />
+                <button id="addJobProfileSkillBtn" class="btn btn-secondary" type="button">Add Required Skill</button>
+                <div id="jobProfileSkillDraftList" class="card-list"></div>
+                <textarea id="jobProfileRequiredSkills" class="hidden" rows="2">[]</textarea>
+                <button class="btn btn-primary" type="submit">Create Job Profile</button>
+              </form>
+            </article>
+            <article class="card">
+              <h2>Career Paths</h2>
+              <div id="careerPathsList" class="card-list"></div>
+            </article>
+            <article class="card">
+              <h2>Create Career Path (HR)</h2>
+              <form id="careerPathForm" class="form-grid">
+                <label for="careerPathDepartment">Department</label>
+                <input id="careerPathDepartment" required />
+                <label for="careerPathSequence">Job Sequence (comma-separated)</label>
+                <input id="careerPathSequence" placeholder="Data Analyst, Senior Data Analyst, Analytics Manager" required />
+                <button class="btn btn-primary" type="submit">Create Career Path</button>
+              </form>
+            </article>
           </section>
 
           <section data-page-view="analytics" class="page hidden">

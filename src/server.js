@@ -32,6 +32,42 @@ function normalizeSkillName(name = '') {
   return name.trim().toLowerCase();
 }
 
+function validateRequiredSkills(requiredSkills, db) {
+  if (!Array.isArray(requiredSkills)) {
+    return { ok: false, error: 'requiredSkills must be an array.' };
+  }
+
+  const seen = new Set();
+  for (const item of requiredSkills) {
+    if (!item || typeof item !== 'object') {
+      return { ok: false, error: 'Each required skill entry must be an object.' };
+    }
+
+    const { skillId, weight, minProficiency } = item;
+    if (!skillId || !db.skills.some((s) => s.skillId === skillId)) {
+      return { ok: false, error: `Unknown skillId "${skillId}". Add it to Skills Library first.` };
+    }
+
+    if (seen.has(skillId)) {
+      return { ok: false, error: `Duplicate required skill "${skillId}" is not allowed.` };
+    }
+    seen.add(skillId);
+
+    const parsedWeight = Number(weight);
+    const parsedMinProficiency = Number(minProficiency);
+
+    if (!Number.isFinite(parsedWeight) || parsedWeight <= 0 || parsedWeight > 1) {
+      return { ok: false, error: `weight for "${skillId}" must be a number between 0 and 1.` };
+    }
+
+    if (!Number.isInteger(parsedMinProficiency) || parsedMinProficiency < 1 || parsedMinProficiency > 5) {
+      return { ok: false, error: `minProficiency for "${skillId}" must be an integer between 1 and 5.` };
+    }
+  }
+
+  return { ok: true };
+}
+
 function withoutPassword(user) {
   if (!user) return null;
   return {
@@ -132,6 +168,10 @@ function asyncHandler(fn) {
 function ensureCollections(db) {
   if (!Array.isArray(db.approvalPolicies)) db.approvalPolicies = [];
   if (!Array.isArray(db.auditLogs)) db.auditLogs = [];
+  if (!Array.isArray(db.skillRequests)) db.skillRequests = [];
+  if (!Array.isArray(db.skills)) db.skills = [];
+  if (!Array.isArray(db.jobProfiles)) db.jobProfiles = [];
+  if (!Array.isArray(db.careerPaths)) db.careerPaths = [];
 }
 
 function resolveApprovalPolicy(db, opportunity) {
@@ -294,6 +334,250 @@ function createApp(options = {}) {
     res.json(OPPORTUNITY_TYPES);
   }));
 
+  app.get('/api/skills', requireAuth, asyncHandler(async (req, res) => {
+    const skills = [...req.db.skills].sort((a, b) => a.skillName.localeCompare(b.skillName));
+    res.json(skills);
+  }));
+
+  app.post('/api/skills', requireAuth, asyncHandler(async (req, res) => {
+    const db = req.db;
+    if (req.user.role !== 'hr') {
+      return forbidden(res, 'Only HR can create skills in the central repository.');
+    }
+
+    const { skillName, category = 'General' } = req.body;
+    if (!skillName || !String(skillName).trim()) {
+      return res.status(400).json({ error: 'skillName is required.' });
+    }
+
+    const normalized = normalizeSkillName(skillName);
+    const existing = db.skills.find((s) => normalizeSkillName(s.skillName) === normalized);
+    if (existing) {
+      return res.status(409).json({ error: 'Skill already exists in repository.' });
+    }
+
+    const skill = {
+      skillId: createId('sk'),
+      skillName: String(skillName).trim(),
+      category
+    };
+
+    db.skills.push(skill);
+    pushAudit(db, 'CREATE', 'Skill', skill.skillId, req.user.userId);
+    await store.writeDb(db);
+    res.status(201).json(skill);
+  }));
+
+  app.patch('/api/skills/:skillId', requireAuth, asyncHandler(async (req, res) => {
+    const db = req.db;
+    if (req.user.role !== 'hr') {
+      return forbidden(res, 'Only HR can update skills in the central repository.');
+    }
+
+    const skill = db.skills.find((s) => s.skillId === req.params.skillId);
+    if (!skill) {
+      return res.status(404).json({ error: 'Skill not found.' });
+    }
+
+    if (req.body.skillName !== undefined) {
+      const normalized = normalizeSkillName(req.body.skillName);
+      const duplicate = db.skills.find((s) => s.skillId !== skill.skillId && normalizeSkillName(s.skillName) === normalized);
+      if (duplicate) {
+        return res.status(409).json({ error: 'Another skill already uses this name.' });
+      }
+      skill.skillName = String(req.body.skillName).trim();
+    }
+
+    if (req.body.category !== undefined) {
+      skill.category = req.body.category;
+    }
+
+    pushAudit(db, 'UPDATE', 'Skill', skill.skillId, req.user.userId);
+    await store.writeDb(db);
+    res.json(skill);
+  }));
+
+  app.get('/api/skill-requests', requireAuth, asyncHandler(async (req, res) => {
+    const db = req.db;
+    let list = db.skillRequests;
+
+    if (req.user.role === 'employee') {
+      list = list.filter((item) => item.employeeId === req.user.employeeId);
+    }
+
+    if (req.user.role === 'manager') {
+      const managedEmployeeIds = db.employees
+        .filter((e) => e.managerId === req.user.employeeId)
+        .map((e) => e.employeeId);
+      list = list.filter((item) => managedEmployeeIds.includes(item.employeeId));
+    }
+
+    const enriched = list
+      .slice()
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .map((item) => ({
+        ...item,
+        employee: db.employees.find((e) => e.employeeId === item.employeeId) || null
+      }));
+
+    res.json(enriched);
+  }));
+
+  app.post('/api/skill-requests', requireAuth, asyncHandler(async (req, res) => {
+    const db = req.db;
+    if (req.user.role !== 'employee') {
+      return forbidden(res, 'Only employees can submit skill requests.');
+    }
+
+    const { skillName, category = 'General', reason = '' } = req.body;
+    if (!skillName || !String(skillName).trim()) {
+      return res.status(400).json({ error: 'skillName is required.' });
+    }
+
+    const normalized = normalizeSkillName(skillName);
+    const existingSkill = db.skills.find((s) => normalizeSkillName(s.skillName) === normalized);
+    if (existingSkill) {
+      return res.status(409).json({ error: 'Skill already exists in repository. Ask HR/manager to assign it.' });
+    }
+
+    const duplicateRequest = db.skillRequests.find(
+      (r) => r.status === 'Pending' && normalizeSkillName(r.skillName) === normalized
+    );
+    if (duplicateRequest) {
+      return res.status(409).json({ error: 'A pending request for this skill already exists.' });
+    }
+
+    const requestItem = {
+      requestId: createId('req'),
+      employeeId: req.user.employeeId,
+      skillName: String(skillName).trim(),
+      category,
+      reason,
+      status: 'Pending',
+      reviewedBy: null,
+      reviewedAt: null,
+      reviewNotes: null,
+      createdAt: new Date().toISOString()
+    };
+
+    db.skillRequests.push(requestItem);
+    pushAudit(db, 'CREATE', 'SkillRequest', requestItem.requestId, req.user.userId);
+    await store.writeDb(db);
+    res.status(201).json(requestItem);
+  }));
+
+  app.patch('/api/skill-requests/:requestId', requireAuth, asyncHandler(async (req, res) => {
+    const db = req.db;
+    if (req.user.role !== 'hr') {
+      return forbidden(res, 'Only HR can review skill requests.');
+    }
+
+    const requestItem = db.skillRequests.find((r) => r.requestId === req.params.requestId);
+    if (!requestItem) {
+      return res.status(404).json({ error: 'Skill request not found.' });
+    }
+
+    const { status, reviewNotes = '' } = req.body;
+    if (!['Approved', 'Rejected'].includes(status)) {
+      return res.status(400).json({ error: 'status must be Approved or Rejected.' });
+    }
+
+    if (requestItem.status !== 'Pending') {
+      return res.status(409).json({ error: 'Skill request already reviewed.' });
+    }
+
+    requestItem.status = status;
+    requestItem.reviewedBy = req.user.userId;
+    requestItem.reviewedAt = new Date().toISOString();
+    requestItem.reviewNotes = reviewNotes;
+
+    if (status === 'Approved') {
+      const normalized = normalizeSkillName(requestItem.skillName);
+      let skill = db.skills.find((s) => normalizeSkillName(s.skillName) === normalized);
+      if (!skill) {
+        skill = {
+          skillId: createId('sk'),
+          skillName: requestItem.skillName,
+          category: requestItem.category || 'General'
+        };
+        db.skills.push(skill);
+      }
+    }
+
+    pushAudit(db, 'REVIEW', 'SkillRequest', requestItem.requestId, req.user.userId);
+    await store.writeDb(db);
+    res.json(requestItem);
+  }));
+
+  app.get('/api/job-profiles', requireAuth, asyncHandler(async (req, res) => {
+    const db = req.db;
+    const enriched = db.jobProfiles.map((profile) => ({
+      ...profile,
+      requiredSkillsDetailed: (profile.requiredSkills || []).map((reqSkill) => ({
+        ...reqSkill,
+        skillName: db.skills.find((s) => s.skillId === reqSkill.skillId)?.skillName || reqSkill.skillId
+      }))
+    }));
+    res.json(enriched);
+  }));
+
+  app.post('/api/job-profiles', requireAuth, asyncHandler(async (req, res) => {
+    const db = req.db;
+    if (req.user.role !== 'hr') {
+      return forbidden(res, 'Only HR can create job profiles.');
+    }
+
+    const { title, department, requiredSkills = [] } = req.body;
+    if (!title || !department) {
+      return res.status(400).json({ error: 'title and department are required.' });
+    }
+
+    const validation = validateRequiredSkills(requiredSkills, db);
+    if (!validation.ok) {
+      return res.status(400).json({ error: validation.error });
+    }
+
+    const profile = {
+      jobId: createId('job'),
+      title,
+      department,
+      requiredSkills
+    };
+
+    db.jobProfiles.push(profile);
+    pushAudit(db, 'CREATE', 'JobProfile', profile.jobId, req.user.userId);
+    await store.writeDb(db);
+    res.status(201).json(profile);
+  }));
+
+  app.patch('/api/job-profiles/:jobId', requireAuth, asyncHandler(async (req, res) => {
+    const db = req.db;
+    if (req.user.role !== 'hr') {
+      return forbidden(res, 'Only HR can update job profiles.');
+    }
+
+    const profile = db.jobProfiles.find((item) => item.jobId === req.params.jobId);
+    if (!profile) {
+      return res.status(404).json({ error: 'Job profile not found.' });
+    }
+
+    if (req.body.requiredSkills !== undefined) {
+      const validation = validateRequiredSkills(req.body.requiredSkills, db);
+      if (!validation.ok) {
+        return res.status(400).json({ error: validation.error });
+      }
+      profile.requiredSkills = req.body.requiredSkills;
+    }
+
+    ['title', 'department'].forEach((field) => {
+      if (req.body[field] !== undefined) profile[field] = req.body[field];
+    });
+
+    pushAudit(db, 'UPDATE', 'JobProfile', profile.jobId, req.user.userId);
+    await store.writeDb(db);
+    res.json(profile);
+  }));
+
   app.get('/api/employees', requireAuth, asyncHandler(async (req, res) => {
     const db = req.db;
     const { role, employeeId } = req.user;
@@ -381,30 +665,18 @@ function createApp(options = {}) {
       return forbidden(res);
     }
 
-    const { skillId, skillName, category = 'General', proficiency = 1 } = req.body;
-    if (!skillId && !skillName) {
-      return res.status(400).json({ error: 'Provide skillId or skillName.' });
+    const { skillId, proficiency = 1 } = req.body;
+    if (!skillId) {
+      return res.status(400).json({ error: 'skillId is required. Select a skill from the central repository.' });
     }
 
-    let resolvedSkillId = skillId;
-
-    if (!resolvedSkillId) {
-      const normalizedName = normalizeSkillName(skillName);
-      const existing = db.skills.find((s) => normalizeSkillName(s.skillName) === normalizedName);
-      if (existing) {
-        resolvedSkillId = existing.skillId;
-      } else {
-        resolvedSkillId = createId('sk');
-        db.skills.push({
-          skillId: resolvedSkillId,
-          skillName: skillName.trim(),
-          category
-        });
-      }
+    const skill = db.skills.find((s) => s.skillId === skillId);
+    if (!skill) {
+      return res.status(400).json({ error: 'Invalid skillId. Skill must exist in central repository.' });
     }
 
     const existingEmployeeSkill = db.employeeSkills.find(
-      (item) => item.employeeId === employee.employeeId && item.skillId === resolvedSkillId
+      (item) => item.employeeId === employee.employeeId && item.skillId === skillId
     );
 
     if (existingEmployeeSkill) {
@@ -412,18 +684,18 @@ function createApp(options = {}) {
     } else {
       db.employeeSkills.push({
         employeeId: employee.employeeId,
-        skillId: resolvedSkillId,
+        skillId,
         proficiency,
         endorsedBy: []
       });
     }
 
-    pushAudit(db, 'UPSERT', 'EmployeeSkill', `${employee.employeeId}:${resolvedSkillId}`, req.user.userId);
+    pushAudit(db, 'UPSERT', 'EmployeeSkill', `${employee.employeeId}:${skillId}`, req.user.userId);
     await store.writeDb(db);
 
     return res.status(201).json({
       employeeId: employee.employeeId,
-      skillId: resolvedSkillId,
+      skillId,
       proficiency
     });
   }));
@@ -512,6 +784,10 @@ function createApp(options = {}) {
 
     if (['Role', 'Stretch'].includes(type) && !jobId) {
       return res.status(400).json({ error: 'jobId is required for Role and Stretch opportunities.' });
+    }
+
+    if (jobId && !db.jobProfiles.some((job) => job.jobId === jobId)) {
+      return res.status(400).json({ error: 'Invalid jobId. Create the job profile in Role Design first.' });
     }
 
     const opportunity = {
@@ -808,6 +1084,55 @@ function createApp(options = {}) {
 
   app.get('/api/career-paths', requireAuth, asyncHandler(async (req, res) => {
     res.json(req.db.careerPaths);
+  }));
+
+  app.post('/api/career-paths', requireAuth, asyncHandler(async (req, res) => {
+    const db = req.db;
+    if (req.user.role !== 'hr') {
+      return forbidden(res, 'Only HR can create career paths.');
+    }
+
+    const { department, jobSequence = [] } = req.body;
+    if (!department || !Array.isArray(jobSequence) || !jobSequence.length) {
+      return res.status(400).json({ error: 'department and non-empty jobSequence are required.' });
+    }
+
+    const path = {
+      pathId: createId('path'),
+      department,
+      jobSequence
+    };
+
+    db.careerPaths.push(path);
+    pushAudit(db, 'CREATE', 'CareerPath', path.pathId, req.user.userId);
+    await store.writeDb(db);
+    res.status(201).json(path);
+  }));
+
+  app.patch('/api/career-paths/:pathId', requireAuth, asyncHandler(async (req, res) => {
+    const db = req.db;
+    if (req.user.role !== 'hr') {
+      return forbidden(res, 'Only HR can update career paths.');
+    }
+
+    const path = db.careerPaths.find((item) => item.pathId === req.params.pathId);
+    if (!path) {
+      return res.status(404).json({ error: 'Career path not found.' });
+    }
+
+    if (req.body.department !== undefined) {
+      path.department = req.body.department;
+    }
+    if (req.body.jobSequence !== undefined) {
+      if (!Array.isArray(req.body.jobSequence) || !req.body.jobSequence.length) {
+        return res.status(400).json({ error: 'jobSequence must be a non-empty array.' });
+      }
+      path.jobSequence = req.body.jobSequence;
+    }
+
+    pushAudit(db, 'UPDATE', 'CareerPath', path.pathId, req.user.userId);
+    await store.writeDb(db);
+    res.json(path);
   }));
 
   app.get('/api/career-paths/readiness', requireAuth, asyncHandler(async (req, res) => {
